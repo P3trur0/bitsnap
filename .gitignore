@@ -1,0 +1,9 @@
+/.idea
+/bitsnap.i*
+
+/.gradle/
+/build/
+/lib/
+
+*~
+.DS_Store
