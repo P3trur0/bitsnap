@@ -16,12 +16,32 @@
 
 package bitsnap.http
 
-import bitsnap.reflect.ClassPath
-import kotlin.reflect.companionObjectInstance
+import java.time.ZoneId
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
+import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 
 abstract class Header {
 
     open class HeaderParseException(message: String) : HttpParseException(message)
+
+    class HeaderDateParseException(value: String) : HeaderParseException("Can't parse Date $value")
+
+    internal interface HeaderCompanion {
+        val name: String
+
+        fun from(value: String): Header
+
+        fun formatDate(date: Date) : String = dateFormat.format(date.toInstant().atZone(ZoneId.of("GMT")))
+
+        fun parseDate(value: String) : Date = try {
+            Date.from(ZonedDateTime.parse(value, Header.dateFormat).toInstant())
+        } catch (e: DateTimeParseException) {
+            throw Header.HeaderDateParseException(value)
+        }
+    }
 
     abstract val name: String
 
@@ -31,22 +51,17 @@ abstract class Header {
 
     companion object {
 
-        internal interface HeaderCompanion {
-            val name: String
+        internal val dateFormat = DateTimeFormatter.RFC_1123_DATE_TIME.withZone(ZoneId.of("GMT"))
 
-            fun from(value: String): Header
+        internal val headerCompanions: MutableMap<String, HeaderCompanion> = ConcurrentHashMap()
+
+        internal fun registerCompanion(companion: HeaderCompanion) {
+            headerCompanions.put(companion.name, companion)
         }
 
-        internal val headers: Map<String, HeaderCompanion> by lazy {
-            ClassPath.of(ClassLoader.getSystemClassLoader()).packageClasses("bitsnap.http.headers")
-                .map{it.kotlinClass.companionObjectInstance}
-                .filter { it is HeaderCompanion }
-                .map { it as HeaderCompanion }
-                .associateBy({ it.name }, {it})
-        }
+        fun from(name: String, value: String) = headerCompanions[name]?.from(value) ?: Header.Unknown(name, value)
 
-        fun from(name: String, value: String) = headers[name]?.from(value) ?: Header.Unknown(name, value)
-
+        @Throws(HeaderParseException::class)
         fun from(headerString: String) : Header {
             val sepIndex = headerString.indexOf(": ")
             if (sepIndex < 0) {

@@ -94,22 +94,24 @@ internal object Scanner {
         scanJar(file, loader)
     }
 
-    fun resources(loader: ClassLoader): List<ClassResource> {
+    fun resources(loader: ClassLoader): List<ClassPath.ClassResource> {
 
         val loaders: MutableList<URLClassLoader> = LinkedList()
 
         var l = loader
-        while (l.parent != null) {
+        do {
             if (l is URLClassLoader) {
                 loaders.add(l)
             }
 
             l = loader.parent
-        }
+        } while (l.parent != null)
 
         if (l is URLClassLoader) {
             loaders.add(l)
         }
+
+        println(loaders.size)
 
         return loaders.flatMap { l ->
             l.urLs.asIterable().filter { it.protocol == "file" }
@@ -118,7 +120,7 @@ internal object Scanner {
                 .flatMap { scan(it, l) }
                 .toSet()
                 .map {
-                    ClassResource(it)
+                    ClassPath.ClassResource(it)
                 }.filterNotNull()
         }
     }

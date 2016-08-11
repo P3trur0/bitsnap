@@ -21,7 +21,7 @@ package bitsnap.http
  */
 class Response(
     val status: Status,
-    val body: Body
+    val body: StringBody
 ) {
 
 }

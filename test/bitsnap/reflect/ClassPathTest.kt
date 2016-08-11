@@ -26,7 +26,7 @@ class ClassPathTest : Spek({
 
     describe("ClassPath reflection") {
         it("Should retrieve bitsnap.reflect classes") {
-            assertEquals(3, classpath.packageClasses("bitsnap.reflect").size)
+            assertEquals(2, classpath.packageClasses("bitsnap.reflect").size)
         }
 
         it("Should retrieve bitsnap.reflect.test classes") {

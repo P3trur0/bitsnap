@@ -23,6 +23,11 @@ class Forwarded internal constructor(override val value: String) : Header() {
     override val name = Forwarded.Companion.name
 
     companion object : HeaderCompanion {
+
+        init {
+            Header.registerCompanion(Forwarded.Companion)
+        }
+
         override val name = "Forwarded"
         override fun from(value: String) = Forwarded(value)
     }
@@ -33,6 +38,11 @@ class MaxForwards internal constructor(override val value: String) : Header() {
     override val name = MaxForwards.Companion.name
 
     companion object : HeaderCompanion {
+
+        init {
+            Header.registerCompanion(MaxForwards.Companion)
+        }
+
         override val name = "Max-Forwards"
         override fun from(value: String) = MaxForwards(value)
     }
@@ -43,17 +53,27 @@ class Via internal constructor(override val value: String) : Header() {
     override val name = Via.Companion.name
 
     companion object : HeaderCompanion {
+
+        init {
+            Header.registerCompanion(Via.Companion)
+        }
+
         override val name = "Via"
         override fun from(value: String) = Via(value)
     }
 }
 
-class Authenticate internal constructor(override val value: String) : Header() {
+class ProxyAuthenticate internal constructor(override val value: String) : Header() {
 
-    override val name = Authenticate.Companion.name
+    override val name = ProxyAuthenticate.Companion.name
 
     companion object : HeaderCompanion {
+
+        init {
+            Header.registerCompanion(ProxyAuthenticate.Companion)
+        }
+
         override val name = "Proxy-Authenticate"
-        override fun from(value: String) = Authenticate(value)
+        override fun from(value: String) = ProxyAuthenticate(value)
     }
 }

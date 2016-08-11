@@ -19,40 +19,10 @@ package bitsnap.http.headers
 import bitsnap.http.Header
 import bitsnap.http.MimeType
 import java.nio.charset.Charset
-import java.time.ZoneId
-import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
 import java.util.*
 import java.util.Date
 
-internal fun <T> List<Pair<T, Int>>.joinToStringWithQuality(proc: (T) -> String) =
-    this.joinToString {
-        "${proc(it.first)}${if (it.second < 10 && it.second >= 0) ";q=0.${it.second}" else ""}, ".removeSuffix(", ")
-    }
 
-internal fun <T> List<Pair<T, Int>>.joinToStringWithQuality() = this.joinToStringWithQuality { it.toString() }
-
-internal fun String.splitValueQuality() = this.split(", ").map {
-    val qualityIndex = it.indexOfAny(listOf(";q=", "; q="))
-    return@map if (qualityIndex > 0) {
-        val value = (it.substring(0, qualityIndex))
-        var qualityString = it.substring(qualityIndex)
-        // there might be some other parameters
-        val qualitySemIndex = qualityString.indexOf(';')
-        if (qualitySemIndex > 0) {
-            qualityString = qualityString.substring(0, qualitySemIndex)
-        }
-
-        try {
-            val quality = (qualityString.toFloat() * 10).toInt()
-            Pair(value, quality)
-        } catch(e: NumberFormatException) {
-            throw Header.HeaderParseException("Cant parse header quality $qualityString")
-        }
-    } else {
-        Pair(it, 10)
-    }
-}
 
 class Accept internal constructor(val types: List<Pair<MimeType, Int>>) : Header() {
 
@@ -60,21 +30,28 @@ class Accept internal constructor(val types: List<Pair<MimeType, Int>>) : Header
 
     override val name = Accept.Companion.name
 
+    internal fun joinMimeTypeToStringWithQuality(types: List<Pair<MimeType, Int>>) =
+        types.joinToString {
+            "${it.first.typeToString()}${
+            if (it.second < 10 && it.second >= 0)
+                ";q=0.${it.second}}"
+            else ""
+            }, "
+        }.removeSuffix(", ")
+
     override val value: String by lazy {
-        types.joinToStringWithQuality()
+        joinMimeTypeToStringWithQuality(types)
     }
 
     class AcceptBuilder {
 
-        val types: MutableList<Pair<MimeType, Int>> = ArrayList()
+        val types: MutableList<Pair<MimeType, Int>> = LinkedList()
 
-        fun type(type: MimeType) {
-            types.add(Pair(type, 10))
-        }
+        fun type(type: MimeType) = types.add(Pair(type, 10))
 
-        fun type(type: MimeType, quality: Int) {
-            types.add(Pair(type, quality))
-        }
+        fun type(type: MimeType, quality: Int) = types.add(Pair(type, quality))
+
+        fun type(type: MimeType, quality: Float) = types.add(Pair(type, Math.floor(quality.toDouble() * 10).toInt()))
 
         internal fun build(init: AcceptBuilder.() -> Unit): Accept {
             this.init()
@@ -84,6 +61,10 @@ class Accept internal constructor(val types: List<Pair<MimeType, Int>>) : Header
 
     companion object : HeaderCompanion {
 
+        init {
+            Header.registerCompanion(Accept.Companion)
+        }
+
         override val name = "Accept"
 
         override fun from(value: String) = Accept(value.splitValueQuality().map {
@@ -91,7 +72,7 @@ class Accept internal constructor(val types: List<Pair<MimeType, Int>>) : Header
             Pair(MimeType.from(stringValue), quality)
         })
 
-        fun types(init: AcceptBuilder.() -> Unit) = AcceptBuilder().build(init)
+        fun build(init: AcceptBuilder.() -> Unit) = AcceptBuilder().build(init)
     }
 }
 
@@ -102,20 +83,16 @@ class AcceptCharset internal constructor(val charsets: List<Pair<Charset, Int>>)
     override val name = AcceptCharset.Companion.name
 
     override val value: String by lazy {
-        charsets.joinToStringWithQuality()
+        joinToStringWithQuality(charsets)
     }
 
     class AcceptCharsetBuilder {
 
-        val charsets: MutableList<Pair<Charset, Int>> = ArrayList()
+        val charsets: MutableList<Pair<Charset, Int>> = LinkedList()
 
-        fun charset(ch: Charset) {
-            charsets.add(Pair(ch, 10))
-        }
+        fun charset(ch: Charset) = charsets.add(Pair(ch, 10))
 
-        fun charset(ch: Charset, quality: Int) {
-            charsets.add(Pair(ch, quality))
-        }
+        fun charset(ch: Charset, quality: Int) = charsets.add(Pair(ch, quality))
 
         internal fun build(init: AcceptCharsetBuilder.() -> Unit): AcceptCharset {
             this.init()
@@ -125,11 +102,15 @@ class AcceptCharset internal constructor(val charsets: List<Pair<Charset, Int>>)
 
     companion object : HeaderCompanion {
 
+        init {
+            Header.registerCompanion(AcceptCharset.Companion)
+        }
+
         override val name = "Accept-Charset"
 
         override fun from(value: String) = AcceptCharset(Charset.forName(value))
 
-        fun charsets(init: AcceptCharsetBuilder.() -> Unit) = AcceptCharsetBuilder().build(init)
+        fun build(init: AcceptCharsetBuilder.() -> Unit) = AcceptCharsetBuilder().build(init)
     }
 }
 
@@ -140,7 +121,7 @@ class AcceptEncoding internal constructor(val types: List<Pair<EncodingType, Int
     override val name = AcceptEncoding.Companion.name
 
     override val value: String by lazy {
-        types.joinToStringWithQuality()
+        joinToStringWithQuality(types)
     }
 
     enum class EncodingType(val type: String) {
@@ -169,6 +150,8 @@ class AcceptEncoding internal constructor(val types: List<Pair<EncodingType, Int
         override fun toString() = type
 
         companion object {
+
+            @Throws(HeaderParseException::class)
             fun from(value: String) = EncodingType.values().find { it.type == value }
                 ?: throw HeaderParseException("Unknown $value encoding")
         }
@@ -176,15 +159,11 @@ class AcceptEncoding internal constructor(val types: List<Pair<EncodingType, Int
 
     class AcceptEncodingBuilder {
 
-        val encodings: MutableList<Pair<EncodingType, Int>> = ArrayList()
+        val encodings: MutableList<Pair<EncodingType, Int>> = LinkedList()
 
-        fun encoding(ch: EncodingType) {
-            encodings.add(Pair(ch, 10))
-        }
+        fun encoding(ch: EncodingType) =encodings.add(Pair(ch, 10))
 
-        fun encoding(ch: EncodingType, quality: Int) {
-            encodings.add(Pair(ch, quality))
-        }
+        fun encoding(ch: EncodingType, quality: Int) = encodings.add(Pair(ch, quality))
 
         internal fun build(init: AcceptEncoding.AcceptEncodingBuilder.() -> Unit): AcceptEncoding {
             this.init()
@@ -193,6 +172,10 @@ class AcceptEncoding internal constructor(val types: List<Pair<EncodingType, Int
     }
 
     companion object : HeaderCompanion {
+
+        init {
+            Header.registerCompanion(AcceptEncoding.Companion)
+        }
 
         override val name = "Accept-Encoding"
 
@@ -203,7 +186,7 @@ class AcceptEncoding internal constructor(val types: List<Pair<EncodingType, Int
             })
         }
 
-        fun encodings(init: AcceptEncoding.AcceptEncodingBuilder.() -> Unit) = AcceptEncodingBuilder().build(init)
+        fun build(init: AcceptEncoding.AcceptEncodingBuilder.() -> Unit) = AcceptEncodingBuilder().build(init)
     }
 }
 
@@ -214,19 +197,15 @@ class AcceptLanguage internal constructor(val locales: List<Pair<Locale, Int>>) 
     override val name = AcceptLanguage.Companion.name
 
     override val value: String by lazy {
-        locales.joinToStringWithQuality()
+        joinToStringWithQuality(locales)
     }
 
     class AcceptLanguageBuilder {
-        val locales: MutableList<Pair<Locale, Int>> = ArrayList()
+        val locales: MutableList<Pair<Locale, Int>> = LinkedList()
 
-        fun locale(locale: Locale) {
-            locales.add(Pair(locale, 10))
-        }
+        fun locale(locale: Locale) = locales.add(Pair(locale, 10))
 
-        fun locale(locale: Locale, quality: Int) {
-            locales.add(Pair(locale, quality))
-        }
+        fun locale(locale: Locale, quality: Int) = locales.add(Pair(locale, quality))
 
         internal fun build(init: AcceptLanguage.AcceptLanguageBuilder.() -> Unit): AcceptLanguage {
             this.init()
@@ -235,6 +214,10 @@ class AcceptLanguage internal constructor(val locales: List<Pair<Locale, Int>>) 
     }
 
     companion object : HeaderCompanion {
+
+        init {
+            Header.registerCompanion(AcceptLanguage.Companion)
+        }
 
         override val name = "Accept-Language"
 
@@ -252,7 +235,7 @@ class AcceptLanguage internal constructor(val locales: List<Pair<Locale, Int>>) 
             })
         }
 
-        fun locales(init: AcceptLanguage.AcceptLanguageBuilder.() -> Unit) = AcceptLanguage.AcceptLanguageBuilder().build(init)
+        fun build(init: AcceptLanguageBuilder.() -> Unit) = AcceptLanguage.AcceptLanguageBuilder().build(init)
     }
 }
 
@@ -261,20 +244,22 @@ class AcceptDatetime(val date: Date) : Header() {
     override val name = AcceptDatetime.Companion.name
 
     override val value: String by lazy {
-        dateFormat.format(date.toInstant().atZone(ZoneId.of("GMT")))
+        formatDate(date)
     }
 
     companion object : HeaderCompanion {
 
-        private val dateFormat = DateTimeFormatter.RFC_1123_DATE_TIME.withZone(ZoneId.of("GMT"))
+        init {
+            Header.registerCompanion(AcceptDatetime.Companion)
+        }
 
         override val name = "Accept-Datetime"
 
-        override fun from(value: String) = AcceptDatetime(Date.from(ZonedDateTime.parse(value, dateFormat).toInstant()))
+        override fun from(value: String) = AcceptDatetime(parseDate(value))
     }
 }
 
-class AcceptPatch(val types: List<MimeType>) : Header() {
+class AcceptPatch internal constructor(val types: List<MimeType>) : Header() {
 
     override val name = AcceptPatch.Companion.name
 
@@ -282,10 +267,27 @@ class AcceptPatch(val types: List<MimeType>) : Header() {
         types.joinToString(", ")
     }
 
+    class AcceptPatchBuilder {
+        val types: MutableList<MimeType> = LinkedList()
+        fun type(type: MimeType) = types.add(type)
+
+        internal fun build(init: AcceptPatchBuilder.() -> Unit): AcceptPatch {
+            this.init()
+            return AcceptPatch(types)
+        }
+    }
+
     companion object : HeaderCompanion {
+
+        init {
+            Header.registerCompanion(AcceptPatch.Companion)
+        }
+
         override val name = "Accept-Patch"
 
         override fun from(value: String) = AcceptPatch(value.split(", ").map { MimeType.from(it) })
+
+        fun build(init: AcceptPatchBuilder.() -> Unit) = AcceptPatchBuilder().build(init)
     }
 }
 
@@ -297,24 +299,12 @@ class AcceptRanges(val unit: RangeUnit) : Header() {
         unit.toString()
     }
 
-    sealed class RangeUnit {
-        object Bytes : RangeUnit() {
-            override fun toString() = "bytes"
-        }
-
-        class Specific(val name: String) : RangeUnit() {
-            override fun toString() = name
-        }
-
-        companion object {
-            fun from(value: String) = when (value) {
-                "bytes" -> RangeUnit.Bytes
-                else -> Specific(value)
-            }
-        }
-    }
-
     companion object : HeaderCompanion {
+
+        init {
+            Header.registerCompanion(AcceptRanges.Companion)
+        }
+
         override val name = "Accept-Ranges"
 
         override fun from(value: String) = AcceptRanges(RangeUnit.from(value))

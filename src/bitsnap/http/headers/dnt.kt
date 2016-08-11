@@ -23,6 +23,11 @@ class DoNotTrack internal constructor(override val value: String) : Header() {
     override val name = DoNotTrack.Companion.name
 
     companion object : HeaderCompanion {
+
+        init {
+            Header.registerCompanion(DoNotTrack.Companion)
+        }
+
         override val name = "DNT"
 
         override fun from(value: String) = DoNotTrack(value)
@@ -51,6 +56,11 @@ class TrackingStatus internal constructor(statusValue: StatusValue) : Header() {
     }
 
     companion object : HeaderCompanion {
+
+        init {
+            Header.registerCompanion(TrackingStatus.Companion)
+        }
+
         override val name = "TSV"
 
         override fun from(value: String) =

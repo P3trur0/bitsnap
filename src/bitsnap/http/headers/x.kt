@@ -23,6 +23,11 @@ class XFrameOptions internal constructor(override val value: String) : Header() 
     override val name = XFrameOptions.Companion.name
 
     companion object : HeaderCompanion {
+
+        init {
+            Header.registerCompanion(XFrameOptions.Companion)
+        }
+
         override val name = "X-Frame-Options"
         override fun from(value: String) = XFrameOptions(value)
     }
@@ -33,6 +38,11 @@ class XContentSecurityPolicy internal constructor(override val value: String) : 
     override val name = XContentSecurityPolicy.Companion.name
 
     companion object : HeaderCompanion {
+
+        init {
+            Header.registerCompanion(XContentSecurityPolicy.Companion)
+        }
+
         override val name = "X-Content-Security-Policy"
         override fun from(value: String) = XContentSecurityPolicy(value)
     }
@@ -43,6 +53,11 @@ class XSSProtection internal constructor(override val value: String) : Header() 
     override val name = XSSProtection.Companion.name
 
     companion object : HeaderCompanion {
+
+        init {
+            Header.registerCompanion(XSSProtection.Companion)
+        }
+
         override val name = "X-XSS-Protection"
         override fun from(value: String) = XSSProtection(value)
     }
@@ -53,6 +68,11 @@ class XContentTypeOptions internal constructor(override val value: String) : Hea
     override val name = XContentTypeOptions.Companion.name
 
     companion object : HeaderCompanion {
+
+        init {
+            Header.registerCompanion(XContentTypeOptions.Companion)
+        }
+
         override val name = "X-Content-Type-Options"
         override fun from(value: String) = XContentTypeOptions(value)
     }
@@ -63,6 +83,11 @@ class XPoweredBy internal constructor(override val value: String) : Header() {
     override val name = XPoweredBy.Companion.name
 
     companion object : HeaderCompanion {
+
+        init {
+            Header.registerCompanion(XPoweredBy.Companion)
+        }
+
         override val name = "X-Powered-By"
         override fun from(value: String) = XPoweredBy(value)
     }
@@ -73,6 +98,11 @@ class XUACompatible internal constructor(override val value: String) : Header() 
     override val name = XUACompatible.Companion.name
 
     companion object : HeaderCompanion {
+
+        init {
+            Header.registerCompanion(XUACompatible.Companion)
+        }
+
         override val name = "X-UA-Compatible"
         override fun from(value: String) = XUACompatible(value)
     }
@@ -83,6 +113,11 @@ class XContentDuration internal constructor(override val value: String) : Header
     override val name = XContentDuration.Companion.name
 
     companion object : HeaderCompanion {
+
+        init {
+            Header.registerCompanion(XContentDuration.Companion)
+        }
+
         override val name = "X-Content-Duration"
         override fun from(value: String) = XContentDuration(value)
     }
@@ -93,6 +128,11 @@ class XRequestID internal constructor(override val value: String) : Header() {
     override val name = XRequestID.Companion.name
 
     companion object : HeaderCompanion {
+
+        init {
+            Header.registerCompanion(XRequestID.Companion)
+        }
+
         override val name = "X-Request-ID"
         override fun from(value: String) = XRequestID(value)
     }
@@ -103,6 +143,11 @@ class XCorrelationID internal constructor(override val value: String) : Header()
     override val name = XCorrelationID.Companion.name
 
     companion object : HeaderCompanion {
+
+        init {
+            Header.registerCompanion(XCorrelationID.Companion)
+        }
+
         override val name = "X-Correlation-ID"
         override fun from(value: String) = XCorrelationID(value)
     }

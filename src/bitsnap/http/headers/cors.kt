@@ -23,6 +23,11 @@ class AccessControlAllowOrigin internal constructor(override val value: String) 
     override val name = AccessControlAllowOrigin.Companion.name
 
     companion object : HeaderCompanion {
+
+        init {
+            Header.registerCompanion(AccessControlAllowOrigin.Companion)
+        }
+
         override val name = "Access-Control-Allow-Origin"
         override fun from(value: String) = AccessControlAllowOrigin(value)
     }
@@ -33,6 +38,11 @@ class AccessControlRequestMethod internal constructor(override val value: String
     override val name = AccessControlRequestMethod.Companion.name
 
     companion object : HeaderCompanion {
+
+        init {
+            Header.registerCompanion(AccessControlRequestMethod.Companion)
+        }
+
         override val name = "Access-Control-Request-Method"
         override fun from(value: String) = AccessControlRequestMethod(value)
     }
@@ -43,6 +53,11 @@ class AccessControlRequestHeaders internal constructor(override val value: Strin
     override val name = AccessControlRequestHeaders.Companion.name
 
     companion object : HeaderCompanion {
+
+        init {
+            Header.registerCompanion(AccessControlRequestHeaders.Companion)
+        }
+
         override val name = "Access-Control-Request-Headers"
         override fun from(value: String) = AccessControlRequestHeaders(value)
     }
@@ -53,6 +68,11 @@ class AccessControlAllowCredentials internal constructor(override val value: Str
     override val name = AccessControlAllowCredentials.Companion.name
 
     companion object : HeaderCompanion {
+
+        init {
+            Header.registerCompanion(AccessControlAllowCredentials.Companion)
+        }
+
         override val name = "Access-Control-Allow-Credentials"
         override fun from(value: String) = AccessControlAllowCredentials(value)
     }
@@ -63,6 +83,11 @@ class AccessControlExposeHeaders internal constructor(override val value: String
     override val name = AccessControlExposeHeaders.Companion.name
 
     companion object : HeaderCompanion {
+
+        init {
+            Header.registerCompanion(AccessControlExposeHeaders.Companion)
+        }
+
         override val name = "Access-Control-Expose-Headers"
         override fun from(value: String) = AccessControlExposeHeaders(value)
     }
@@ -73,6 +98,11 @@ class AccessControlMaxAge internal constructor(override val value: String) : Hea
     override val name = AccessControlMaxAge.Companion.name
 
     companion object : HeaderCompanion {
+
+        init {
+            Header.registerCompanion(AccessControlMaxAge.Companion)
+        }
+
         override val name = "Access-Control-Max-Age"
         override fun from(value: String) = AccessControlMaxAge(value)
     }
@@ -83,6 +113,11 @@ class AccessControlAllowMethods internal constructor(override val value: String)
     override val name = AccessControlAllowMethods.Companion.name
 
     companion object : HeaderCompanion {
+
+        init {
+            Header.registerCompanion(AccessControlAllowMethods.Companion)
+        }
+
         override val name = "Access-Control-Allow-Methods"
         override fun from(value: String) = AccessControlAllowMethods(value)
     }
@@ -93,6 +128,11 @@ class AccessControlAllowHeaders internal constructor(override val value: String)
     override val name = AccessControlAllowHeaders.Companion.name
 
     companion object : HeaderCompanion {
+
+        init {
+            Header.registerCompanion(AccessControlAllowHeaders.Companion)
+        }
+
         override val name = "Access-Control-Allow-Headers"
         override fun from(value: String) = AccessControlAllowHeaders(value)
     }
