@@ -29,13 +29,15 @@ class Cookie internal constructor(override val value: String) : Header() {
         }
 
         override val name = "Cookie"
-        override fun from(value: String) = Cookie(value)
+        override operator fun invoke(value: String) = Cookie(value)
     }
 }
 
 class SetCookie internal constructor(override val value: String) : Header() {
 
     override val name = SetCookie.Companion.name
+
+    override val allowMultiple = true
 
     companion object : HeaderCompanion {
 
@@ -44,6 +46,6 @@ class SetCookie internal constructor(override val value: String) : Header() {
         }
 
         override val name = "Set-Cookie"
-        override fun from(value: String) = SetCookie(value)
+        override operator fun invoke(value: String) = SetCookie(value)
     }
 }

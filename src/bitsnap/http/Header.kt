@@ -16,31 +16,19 @@
 
 package bitsnap.http
 
+import bitsnap.exceptions.HeaderDateParseException
+import bitsnap.exceptions.InvalidHeaderException
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 import java.util.*
-import java.util.concurrent.ConcurrentHashMap
 
 abstract class Header {
 
-    open class HeaderParseException(message: String) : HttpParseException(message)
-
-    class HeaderDateParseException(value: String) : HeaderParseException("Can't parse Date $value")
-
     internal interface HeaderCompanion {
         val name: String
-
-        fun from(value: String): Header
-
-        fun formatDate(date: Date) : String = dateFormat.format(date.toInstant().atZone(ZoneId.of("GMT")))
-
-        fun parseDate(value: String) : Date = try {
-            Date.from(ZonedDateTime.parse(value, Header.dateFormat).toInstant())
-        } catch (e: DateTimeParseException) {
-            throw Header.HeaderDateParseException(value)
-        }
+        operator fun invoke(value: String): Header
     }
 
     abstract val name: String
@@ -51,27 +39,37 @@ abstract class Header {
 
     companion object {
 
-        internal val dateFormat = DateTimeFormatter.RFC_1123_DATE_TIME.withZone(ZoneId.of("GMT"))
+        fun formatDate(date: Date): String = dateFormat.format(date.toInstant().atZone(ZoneId.of("GMT")))
 
-        internal val headerCompanions: MutableMap<String, HeaderCompanion> = ConcurrentHashMap()
-
-        internal fun registerCompanion(companion: HeaderCompanion) {
-            headerCompanions.put(companion.name, companion)
+        fun parseDate(value: String): Date = try {
+            Date.from(ZonedDateTime.parse(value, Header.dateFormat).toInstant())
+        } catch (e: DateTimeParseException) {
+            throw HeaderDateParseException(value)
         }
 
-        fun from(name: String, value: String) = headerCompanions[name]?.from(value) ?: Header.Unknown(name, value)
+        internal val dateFormat = DateTimeFormatter.RFC_1123_DATE_TIME.withZone(ZoneId.of("GMT"))
 
-        @Throws(HeaderParseException::class)
-        fun from(headerString: String) : Header {
+        internal val headerCompanions: MutableMap<String, HeaderCompanion> = HashMap()
+
+        internal fun registerCompanion(companion: HeaderCompanion) {
+            synchronized(headerCompanions) {
+                headerCompanions.put(companion.name.toLowerCase(), companion)
+            }
+        }
+
+        operator fun invoke(name: String, value: String) = headerCompanions[name.toLowerCase()]?.invoke(value) ?: Header.Unknown(name, value)
+
+        @Throws(InvalidHeaderException::class)
+        operator fun invoke(headerString: String): Header {
             val sepIndex = headerString.indexOf(": ")
             if (sepIndex < 0) {
-                throw HeaderParseException("Can't parse header $headerString")
+                throw InvalidHeaderException(headerString)
             }
 
             val name = headerString.substring(0, sepIndex)
             val value = headerString.substring(sepIndex)
 
-            return from(name, value)
+            return invoke(name, value)
         }
     }
 

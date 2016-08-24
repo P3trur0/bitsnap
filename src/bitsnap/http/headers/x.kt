@@ -29,24 +29,10 @@ class XFrameOptions internal constructor(override val value: String) : Header() 
         }
 
         override val name = "X-Frame-Options"
-        override fun from(value: String) = XFrameOptions(value)
+        override operator fun invoke(value: String) = XFrameOptions(value)
     }
 }
 
-class XContentSecurityPolicy internal constructor(override val value: String) : Header() {
-
-    override val name = XContentSecurityPolicy.Companion.name
-
-    companion object : HeaderCompanion {
-
-        init {
-            Header.registerCompanion(XContentSecurityPolicy.Companion)
-        }
-
-        override val name = "X-Content-Security-Policy"
-        override fun from(value: String) = XContentSecurityPolicy(value)
-    }
-}
 
 class XSSProtection internal constructor(override val value: String) : Header() {
 
@@ -59,7 +45,7 @@ class XSSProtection internal constructor(override val value: String) : Header() 
         }
 
         override val name = "X-XSS-Protection"
-        override fun from(value: String) = XSSProtection(value)
+        override operator fun invoke(value: String) = XSSProtection(value)
     }
 }
 
@@ -74,7 +60,7 @@ class XContentTypeOptions internal constructor(override val value: String) : Hea
         }
 
         override val name = "X-Content-Type-Options"
-        override fun from(value: String) = XContentTypeOptions(value)
+        override operator fun invoke(value: String) = XContentTypeOptions(value)
     }
 }
 
@@ -89,7 +75,7 @@ class XPoweredBy internal constructor(override val value: String) : Header() {
         }
 
         override val name = "X-Powered-By"
-        override fun from(value: String) = XPoweredBy(value)
+        override operator fun invoke(value: String) = XPoweredBy(value)
     }
 }
 
@@ -104,7 +90,7 @@ class XUACompatible internal constructor(override val value: String) : Header() 
         }
 
         override val name = "X-UA-Compatible"
-        override fun from(value: String) = XUACompatible(value)
+        override operator fun invoke(value: String) = XUACompatible(value)
     }
 }
 
@@ -119,7 +105,7 @@ class XContentDuration internal constructor(override val value: String) : Header
         }
 
         override val name = "X-Content-Duration"
-        override fun from(value: String) = XContentDuration(value)
+        override operator fun invoke(value: String) = XContentDuration(value)
     }
 }
 
@@ -134,7 +120,7 @@ class XRequestID internal constructor(override val value: String) : Header() {
         }
 
         override val name = "X-Request-ID"
-        override fun from(value: String) = XRequestID(value)
+        override operator fun invoke(value: String) = XRequestID(value)
     }
 }
 
@@ -149,6 +135,6 @@ class XCorrelationID internal constructor(override val value: String) : Header()
         }
 
         override val name = "X-Correlation-ID"
-        override fun from(value: String) = XCorrelationID(value)
+        override operator fun invoke(value: String) = XCorrelationID(value)
     }
 }

@@ -16,70 +16,68 @@
 
 package bitsnap.http
 
+import bitsnap.exceptions.InvalidMimeTypeException
 import java.util.*
 
 data class MimeType internal constructor(val type: String, val subType: String, val parameters: Map<String, String>) {
 
     constructor(type: String, subType: String) : this(type, subType, emptyMap())
 
-    class MimeTypeBuildException(message: String): HttpBuildException("MimeType $message is invalid")
-
-    class MimeTypeParseException(type: String): HttpParseException("Cant parse MIME Type $type")
-
     init {
-        @Throws(MimeTypeBuildException::class)
-        if (!typeIsValid(type)) {
-            throw MimeTypeBuildException("type $type")
+        @Throws(InvalidMimeTypeException::class)
+        if (!type.isValidParam()) {
+            throw InvalidMimeTypeException("type $type")
         }
 
-        @Throws(MimeTypeBuildException::class)
-        if (!typeIsValid(subType)) {
-            throw MimeTypeBuildException("subtype $subType")
+        @Throws(InvalidMimeTypeException::class)
+        if (!subType.isValidParam()) {
+            throw InvalidMimeTypeException("subtype $subType")
         }
     }
 
     fun typeToString() = "$type/$subType"
 
     fun parametersToString() = if (parameters.isNotEmpty()) "; ${
-        parameters.entries.joinToString(
-            separator = "; ",
-            transform = { "${it.key}=${it.value}" })
+    parameters.entries.joinToString(
+        separator = "; ",
+        transform = { "${it.key}=${it.value}" })
     }" else ""
 
     override fun toString() = "${typeToString()}${parametersToString()}"
 
+    override fun equals(other: Any?) = if (other is MimeType) {
+        this.type == other.type && this.subType == other.subType
+    } else false
+
     companion object {
 
-        private val forbiddenTypeChars: String = "()<>@,;:/[]?=\\\""
-
-        fun Char.isPrintable() = this.toInt() > 32 && this.toInt() < 127 // of space to del
-
-        internal fun typeIsValid(type: String) =
-            type.asSequence().find { !it.isPrintable() || forbiddenTypeChars.contains(it) } != null
-
-        @Throws(MimeTypeParseException::class)
-        fun from(mimeString: String) : MimeType {
+        @Throws(InvalidMimeTypeException::class)
+        operator fun invoke(mimeString: String): MimeType {
             val slashIndex = mimeString.indexOf('/')
             val semIndex = mimeString.indexOf(';')
-            if (slashIndex >= 0) {
-                if (slashIndex > semIndex) throw MimeTypeParseException(mimeString)
+            if (slashIndex > 0) {
+                if (slashIndex > semIndex && semIndex > 0) throw InvalidMimeTypeException(mimeString)
 
                 val type = mimeString.substring(0, slashIndex).toLowerCase(Locale.ENGLISH)
 
                 val subtype = if (semIndex > 0) {
-                    mimeString.substring(slashIndex, semIndex).toLowerCase(Locale.ENGLISH)
+                    mimeString.substring(slashIndex + 1, semIndex).toLowerCase(Locale.ENGLISH)
                 } else {
-                    mimeString.substring(slashIndex).toLowerCase(Locale.ENGLISH)
+                    mimeString.substring(slashIndex + 1).toLowerCase(Locale.ENGLISH)
                 }
 
-                if (!typeIsValid(type) && !typeIsValid(subtype)) throw MimeTypeParseException(mimeString)
+                if (!type.isValidParam() || !subtype.isValidParam()) {
+                    throw InvalidMimeTypeException(mimeString)
+                }
 
-                val parameters = mimeString.substring(semIndex).splitParameters() {
-                    MimeTypeParseException(it)
+                val parameters = if (semIndex > 0) mimeString.substring(semIndex + 1).splitParameters() {
+                    InvalidMimeTypeException(it)
+                } else {
+                    emptyMap()
                 }
 
                 return MimeType(type, subtype, parameters)
-            } else throw MimeTypeParseException(mimeString)
+            } else throw InvalidMimeTypeException(mimeString)
         }
     }
 }

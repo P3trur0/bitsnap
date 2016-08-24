@@ -16,46 +16,53 @@
 
 package bitsnap.http.headers
 
-import bitsnap.http.Header
-import bitsnap.http.MimeType
-import java.nio.charset.Charset
+import bitsnap.exceptions.HeaderDateParseException
+import bitsnap.exceptions.UnknownCharsetException
+import bitsnap.exceptions.HeaderDuplicateException
+import bitsnap.exceptions.UnknownEncodingException
+import bitsnap.http.*
 import java.util.*
 import java.util.Date
 
-
-
 class Accept internal constructor(val types: List<Pair<MimeType, Int>>) : Header() {
 
-    constructor(vararg types: MimeType) : this(types.map { Pair(it, 10) })
+    constructor(type: MimeType) : this(listOf(Pair(type, 10)))
 
     override val name = Accept.Companion.name
 
-    internal fun joinMimeTypeToStringWithQuality(types: List<Pair<MimeType, Int>>) =
-        types.joinToString {
-            "${it.first.typeToString()}${
-            if (it.second < 10 && it.second >= 0)
-                ";q=0.${it.second}}"
-            else ""
-            }, "
-        }.removeSuffix(", ")
-
     override val value: String by lazy {
-        joinMimeTypeToStringWithQuality(types)
+        joinToStringWithQuality(types) {
+            it.typeToString()
+        }
     }
 
-    class AcceptBuilder {
+    override fun equals(other: Any?) = if (other is Accept) {
+        types == other.types
+    } else false
 
-        val types: MutableList<Pair<MimeType, Int>> = LinkedList()
+    data class Builder internal constructor(private val types: MutableList<Pair<MimeType, Int>> = LinkedList()) {
 
-        fun type(type: MimeType) = types.add(Pair(type, 10))
+        private fun type(type: Pair<MimeType, Int>) = checkQuality(Accept.name, type.second) {
+            types.add(type)
+        }
 
-        fun type(type: MimeType, quality: Int) = types.add(Pair(type, quality))
+        fun type(type: MimeType, quality: Int) = type(Pair(type, quality))
 
-        fun type(type: MimeType, quality: Float) = types.add(Pair(type, Math.floor(quality.toDouble() * 10).toInt()))
+        fun type(type: MimeType) = type(Pair(type, 10))
 
-        internal fun build(init: AcceptBuilder.() -> Unit): Accept {
-            this.init()
-            return Accept(types)
+        fun types(vararg types: MimeType) = this.types.addAll(types.asSequence().map { Pair(it, 10) })
+
+        companion object {
+
+            @Throws(HeaderDuplicateException::class)
+            operator fun invoke(init: Builder.() -> Unit): Accept {
+                val builder = Builder()
+                builder.init()
+                builder.types.checkHeaderPairDuplicates(Accept.name)
+                return Accept(builder.types
+                    .sortedWith(acceptQualityComparator)
+                )
+            }
         }
     }
 
@@ -67,18 +74,19 @@ class Accept internal constructor(val types: List<Pair<MimeType, Int>>) : Header
 
         override val name = "Accept"
 
-        override fun from(value: String) = Accept(value.splitValueQuality().map {
+        override operator fun invoke(value: String) = Accept(value.splitValueQuality().map {
             val (stringValue, quality) = it
-            Pair(MimeType.from(stringValue), quality)
-        })
+            Pair(MimeType(stringValue), quality)
+        }.toList())
 
-        fun build(init: AcceptBuilder.() -> Unit) = AcceptBuilder().build(init)
+        @Throws(HeaderDuplicateException::class)
+        operator fun invoke(init: Builder.() -> Unit) = Builder(init)
     }
 }
 
 class AcceptCharset internal constructor(val charsets: List<Pair<Charset, Int>>) : Header() {
 
-    constructor(vararg charsets: Charset) : this(charsets.map { Pair(it, 10) })
+    constructor(charset: Charset) : this(listOf(Pair(charset, 10)))
 
     override val name = AcceptCharset.Companion.name
 
@@ -86,17 +94,33 @@ class AcceptCharset internal constructor(val charsets: List<Pair<Charset, Int>>)
         joinToStringWithQuality(charsets)
     }
 
-    class AcceptCharsetBuilder {
+    override fun equals(other: Any?) = if (other is AcceptCharset) {
+        charsets == other.charsets
+    } else false
 
-        val charsets: MutableList<Pair<Charset, Int>> = LinkedList()
+    data class Builder internal constructor(private val charsets: MutableList<Pair<Charset, Int>> = LinkedList()) {
 
-        fun charset(ch: Charset) = charsets.add(Pair(ch, 10))
+        private fun charset(charset: Pair<Charset, Int>) = checkQuality(AcceptCharset.name, charset.second) {
+            charsets.add(charset)
+        }
 
-        fun charset(ch: Charset, quality: Int) = charsets.add(Pair(ch, quality))
+        fun charset(charset: Charset, quality: Int) = charset(Pair(charset, quality))
 
-        internal fun build(init: AcceptCharsetBuilder.() -> Unit): AcceptCharset {
-            this.init()
-            return AcceptCharset(charsets)
+        fun charset(charset: Charset) = charset(charset, 10)
+
+        fun charsets(vararg charsets: Charset) = this.charsets.addAll(charsets.asSequence().map { Pair(it, 10) })
+
+        companion object {
+
+            @Throws(HeaderDuplicateException::class)
+            operator fun invoke(init: Builder.() -> Unit): AcceptCharset {
+                val builder = Builder()
+                builder.init()
+                builder.charsets.checkHeaderPairDuplicates(AcceptCharset.name)
+                return AcceptCharset(builder.charsets
+                    .sortedWith(acceptQualityComparator)
+                )
+            }
         }
     }
 
@@ -108,15 +132,20 @@ class AcceptCharset internal constructor(val charsets: List<Pair<Charset, Int>>)
 
         override val name = "Accept-Charset"
 
-        override fun from(value: String) = AcceptCharset(Charset.forName(value))
+        @Throws(UnknownCharsetException::class)
 
-        fun build(init: AcceptCharsetBuilder.() -> Unit) = AcceptCharsetBuilder().build(init)
+        override operator fun invoke(value: String) = AcceptCharset(value.splitValueQuality().map {
+            Pair(Charset(it.first), it.second)
+        }.toList())
+
+        @Throws(HeaderDuplicateException::class)
+        operator fun invoke(init: Builder.() -> Unit) = Builder(init)
     }
 }
 
-class AcceptEncoding internal constructor(val types: List<Pair<EncodingType, Int>>) : Header() {
+class AcceptEncoding internal constructor(val types: List<Pair<Encoding, Int>>) : Header() {
 
-    constructor(vararg types: AcceptEncoding.EncodingType) : this(types.map { Pair(it, 10) })
+    constructor(type: Encoding) : this(listOf(Pair(type, 10)))
 
     override val name = AcceptEncoding.Companion.name
 
@@ -124,50 +153,32 @@ class AcceptEncoding internal constructor(val types: List<Pair<EncodingType, Int
         joinToStringWithQuality(types)
     }
 
-    enum class EncodingType(val type: String) {
-        // Any encoding
-        ANY("*"),
-        // Deprecated compress
-        COMPRESS("compress"),
-        // Old Plain Deflate
-        DEFLATE("deflate"),
-        // W3C Efficient XML Interchange
-        EXI("exi"),
-        GZIP("gzip"),
-        // No transformation
-        IDENTITY("identity"),
-        // Network Transfer Format for Java Archives
-        PACK200_GZIP("pack200-gzip"),
-        // Brotli
-        BR("br"),
-        BZIP2("bzip2"),
-        LZMA("lzma"),
-        PEERDIST("peerdist"),
-        SDCH("sdch"),
-        XPRESS("xpress"),
-        XZ("xz");
+    override fun equals(other: Any?) = if (other is AcceptEncoding) {
+        types == other.types
+    } else false
 
-        override fun toString() = type
+    data class Builder internal constructor(private val encodings: MutableList<Pair<Encoding, Int>> = LinkedList()) {
+
+        private fun encoding(type: Pair<Encoding, Int>) = checkQuality(AcceptEncoding.name, type.second) {
+            encodings.add(type)
+        }
+
+        fun encoding(type: Encoding, quality: Int) = encoding(Pair(type, quality))
+
+        fun encoding(type: Encoding) = encoding(type, 10)
+
+        fun encodings(vararg types: Encoding) = this.encodings.addAll(types.asSequence().map { Pair(it, 10) })
 
         companion object {
-
-            @Throws(HeaderParseException::class)
-            fun from(value: String) = EncodingType.values().find { it.type == value }
-                ?: throw HeaderParseException("Unknown $value encoding")
-        }
-    }
-
-    class AcceptEncodingBuilder {
-
-        val encodings: MutableList<Pair<EncodingType, Int>> = LinkedList()
-
-        fun encoding(ch: EncodingType) =encodings.add(Pair(ch, 10))
-
-        fun encoding(ch: EncodingType, quality: Int) = encodings.add(Pair(ch, quality))
-
-        internal fun build(init: AcceptEncoding.AcceptEncodingBuilder.() -> Unit): AcceptEncoding {
-            this.init()
-            return AcceptEncoding(encodings)
+            @Throws(HeaderDuplicateException::class)
+            operator fun invoke(init: Builder.() -> Unit): AcceptEncoding {
+                val builder = Builder()
+                builder.init()
+                builder.encodings.checkHeaderPairDuplicates(AcceptEncoding.name)
+                return AcceptEncoding(builder.encodings
+                    .sortedWith(acceptQualityComparator)
+                )
+            }
         }
     }
 
@@ -179,20 +190,22 @@ class AcceptEncoding internal constructor(val types: List<Pair<EncodingType, Int
 
         override val name = "Accept-Encoding"
 
-        override fun from(value: String): AcceptEncoding {
+        @Throws(UnknownEncodingException::class)
+        override operator fun invoke(value: String): AcceptEncoding {
             return AcceptEncoding(value.splitValueQuality().map {
                 val (encodingTypeValue, quality) = it
-                Pair(AcceptEncoding.EncodingType.from(encodingTypeValue), quality)
-            })
+                Pair(Encoding(encodingTypeValue), quality)
+            }.toList())
         }
 
-        fun build(init: AcceptEncoding.AcceptEncodingBuilder.() -> Unit) = AcceptEncodingBuilder().build(init)
+        @Throws(HeaderDuplicateException::class)
+        operator fun invoke(init: Builder.() -> Unit) = Builder(init)
     }
 }
 
 class AcceptLanguage internal constructor(val locales: List<Pair<Locale, Int>>) : Header() {
 
-    constructor(vararg locales: Locale) : this(locales.map { Pair(it, 10) })
+    constructor(locale: Locale) : this(listOf(Pair(locale, 10)))
 
     override val name = AcceptLanguage.Companion.name
 
@@ -200,16 +213,33 @@ class AcceptLanguage internal constructor(val locales: List<Pair<Locale, Int>>) 
         joinToStringWithQuality(locales)
     }
 
-    class AcceptLanguageBuilder {
-        val locales: MutableList<Pair<Locale, Int>> = LinkedList()
+    override fun equals(other: Any?) = if (other is AcceptLanguage) {
+        locales == other.locales
+    } else false
 
-        fun locale(locale: Locale) = locales.add(Pair(locale, 10))
+    data class Builder internal constructor(private val locales: MutableList<Pair<Locale, Int>> = LinkedList()) {
 
-        fun locale(locale: Locale, quality: Int) = locales.add(Pair(locale, quality))
+        private fun locale(locale: Pair<Locale, Int>) = checkQuality(AcceptLanguage.name, locale.second) {
+            locales.add(locale)
+        }
 
-        internal fun build(init: AcceptLanguage.AcceptLanguageBuilder.() -> Unit): AcceptLanguage {
-            this.init()
-            return AcceptLanguage(locales)
+        fun locale(locale: Locale, quality: Int) = locale(Pair(locale, quality))
+
+        fun locale(locale: Locale) = locale(locale, 10)
+
+        fun locales(vararg locales: Locale) = this.locales.addAll(locales.asSequence().map { Pair(it, 10) })
+
+        companion object {
+
+            @Throws(HeaderDuplicateException::class)
+            operator fun invoke(init: Builder.() -> Unit): AcceptLanguage {
+                val builder = Builder()
+                builder.init()
+                builder.locales.checkHeaderPairDuplicates(AcceptLanguage.name)
+                return AcceptLanguage(builder.locales
+                    .sortedWith(acceptQualityComparator)
+                )
+            }
         }
     }
 
@@ -221,21 +251,23 @@ class AcceptLanguage internal constructor(val locales: List<Pair<Locale, Int>>) 
 
         override val name = "Accept-Language"
 
-        override fun from(value: String): AcceptLanguage {
+        override operator fun invoke(value: String): AcceptLanguage {
             return AcceptLanguage(value.splitValueQuality().map {
                 val (stringValue, quality) = it
-                val sepIndex = stringValue.indexOf('-')
+                val sepIndex = stringValue.indexOfAny(listOf("-", "_"))
 
                 if (sepIndex > 0) {
-                    val (language, country) = stringValue.split("-")
+                    val language = stringValue.substring(0, sepIndex)
+                    val country = stringValue.substring(sepIndex + 1)
                     Pair(Locale(language, country), quality)
                 } else {
-                    Pair(Locale(value), quality)
+                    Pair(Locale(stringValue), quality)
                 }
-            })
+            }.toList())
         }
 
-        fun build(init: AcceptLanguageBuilder.() -> Unit) = AcceptLanguage.AcceptLanguageBuilder().build(init)
+        @Throws(HeaderDuplicateException::class)
+        operator fun invoke(init: Builder.() -> Unit) = Builder(init)
     }
 }
 
@@ -247,6 +279,10 @@ class AcceptDatetime(val date: Date) : Header() {
         formatDate(date)
     }
 
+    override fun equals(other: Any?) = if (other is AcceptDatetime) {
+        date.equals(other.date)
+    } else false
+
     companion object : HeaderCompanion {
 
         init {
@@ -255,11 +291,14 @@ class AcceptDatetime(val date: Date) : Header() {
 
         override val name = "Accept-Datetime"
 
-        override fun from(value: String) = AcceptDatetime(parseDate(value))
+        @Throws(HeaderDateParseException::class)
+        override operator fun invoke(value: String) = AcceptDatetime(parseDate(value))
     }
 }
 
 class AcceptPatch internal constructor(val types: List<MimeType>) : Header() {
+
+    constructor(type: MimeType) : this(listOf(type))
 
     override val name = AcceptPatch.Companion.name
 
@@ -267,13 +306,23 @@ class AcceptPatch internal constructor(val types: List<MimeType>) : Header() {
         types.joinToString(", ")
     }
 
-    class AcceptPatchBuilder {
-        val types: MutableList<MimeType> = LinkedList()
+    override fun equals(other: Any?) = if (other is AcceptPatch) {
+        types == other.types
+    } else false
+
+    data class Builder internal constructor(private val types: MutableList<MimeType> = LinkedList()) {
+
         fun type(type: MimeType) = types.add(type)
 
-        internal fun build(init: AcceptPatchBuilder.() -> Unit): AcceptPatch {
-            this.init()
-            return AcceptPatch(types)
+        fun types(vararg types: MimeType) = this.types.addAll(types)
+
+        companion object {
+            operator fun invoke(init: Builder.() -> Unit): AcceptPatch {
+                val builder = Builder()
+                builder.init()
+                builder.types.checkHeaderDuplicates(AcceptPatch.name)
+                return AcceptPatch(builder.types)
+            }
         }
     }
 
@@ -285,9 +334,9 @@ class AcceptPatch internal constructor(val types: List<MimeType>) : Header() {
 
         override val name = "Accept-Patch"
 
-        override fun from(value: String) = AcceptPatch(value.split(", ").map { MimeType.from(it) })
+        override operator fun invoke(value: String) = AcceptPatch(value.split(", ").map { MimeType(it) })
 
-        fun build(init: AcceptPatchBuilder.() -> Unit) = AcceptPatchBuilder().build(init)
+        operator fun invoke(init: Builder.() -> Unit) = Builder(init)
     }
 }
 
@@ -299,6 +348,10 @@ class AcceptRanges(val unit: RangeUnit) : Header() {
         unit.toString()
     }
 
+    override fun equals(other: Any?) = if (other is AcceptRanges) {
+        unit == other.unit
+    } else false
+
     companion object : HeaderCompanion {
 
         init {
@@ -307,6 +360,6 @@ class AcceptRanges(val unit: RangeUnit) : Header() {
 
         override val name = "Accept-Ranges"
 
-        override fun from(value: String) = AcceptRanges(RangeUnit.from(value))
+        override operator fun invoke(value: String) = AcceptRanges(RangeUnit(value))
     }
 }

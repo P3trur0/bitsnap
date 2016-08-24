@@ -16,6 +16,7 @@
 
 package bitsnap.http.headers
 
+import bitsnap.exceptions.UnknownTrackingStatus
 import bitsnap.http.Header
 
 class DoNotTrack internal constructor(override val value: String) : Header() {
@@ -30,7 +31,7 @@ class DoNotTrack internal constructor(override val value: String) : Header() {
 
         override val name = "DNT"
 
-        override fun from(value: String) = DoNotTrack(value)
+        override operator fun invoke(value: String) = DoNotTrack(value)
     }
 }
 
@@ -63,7 +64,7 @@ class TrackingStatus internal constructor(statusValue: StatusValue) : Header() {
 
         override val name = "TSV"
 
-        override fun from(value: String) =
-            TrackingStatus(StatusValue.values().find { it.flag == value[0] } ?: throw Header.HeaderParseException("Unknown tracking status $value"))
+        override operator fun invoke(value: String) =
+            TrackingStatus(StatusValue.values().find { it.flag == value[0] } ?: throw UnknownTrackingStatus(value))
     }
 }

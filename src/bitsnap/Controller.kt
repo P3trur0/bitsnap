@@ -1,0 +1,5 @@
+package bitsnap
+
+class Controller {
+
+}

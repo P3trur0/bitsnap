@@ -17,7 +17,7 @@
 buildscript {
     ext.versions = [
         'kotlin': '1.0.3',
-        'dokka': '0.9.8',
+        'dokka': '0.9.9',
         'jackson': '2.8.1'
     ]
 

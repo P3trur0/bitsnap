@@ -16,22 +16,62 @@
 
 package bitsnap.http.headers
 
+import bitsnap.exceptions.HeaderDateParseException
+import bitsnap.exceptions.HeaderDuplicateException
+import bitsnap.exceptions.InvalidCacheControlException
+import bitsnap.exceptions.UnknownCacheControlException
+import bitsnap.exceptions.UnknownVaryHeader
 import bitsnap.http.Header
-import bitsnap.http.HttpException
 import java.util.*
 import java.util.Date
 
-class ETag internal constructor(val isWeak: Boolean, val tag: String) : Header() {
+open class IfMatch internal constructor(val isWeak: Boolean, val tag: String) : Header() {
 
-    override val name = ETag.Companion.name
+    internal constructor(pair: Pair<Boolean, String>) : this(pair.first, pair.second)
+
+    constructor(tag: String) : this(false, tag)
+
+    override val name = IfMatch.Companion.name
 
     override val value by lazy {
         if (isWeak) {
-            "\\W$tag"
+            "\\W\"$tag\""
         } else {
-            tag
+            "\"$tag\""
         }
     }
+
+    fun isAny() = tag == "*"
+
+    override fun equals(other: Any?) = if (other is IfMatch) {
+        isWeak == other.isWeak && tag == other.tag
+    } else false
+
+    companion object : HeaderCompanion {
+
+        init {
+            Header.registerCompanion(IfMatch.Companion)
+        }
+
+        fun weak(tag: String) = IfMatch(true, tag)
+        fun strong(tag: String) = IfMatch(false, tag)
+
+        override val name = "If-Match"
+
+        override operator fun invoke(value: String) = IfMatch(splitWeak(value))
+
+        internal fun splitWeak(value: String): Pair<Boolean, String> = when {
+            value.startsWith("\\W") -> Pair(true, value.removePrefix("\\W").trim('"'))
+            else -> Pair(false, value.trim('"'))
+        }
+    }
+}
+
+class ETag internal constructor(isWeak: Boolean, tag: String) : IfMatch(isWeak, tag) {
+
+    internal constructor(pair: Pair<Boolean, String>) : this(pair.first, pair.second)
+
+    override val name = ETag.Companion.name
 
     companion object : HeaderCompanion {
 
@@ -40,14 +80,11 @@ class ETag internal constructor(val isWeak: Boolean, val tag: String) : Header()
         }
 
         fun weak(tag: String) = ETag(true, tag)
-
         fun strong(tag: String) = ETag(false, tag)
 
         override val name = "ETag"
-        override fun from(value: String) = when {
-            value.startsWith("\\W") -> ETag(true, value.removePrefix("\\W"))
-            else -> ETag(false, value)
-        }
+
+        override operator fun invoke(value: String) = ETag(splitWeak(value))
     }
 }
 
@@ -55,9 +92,13 @@ class Expires constructor(val date: Date) : Header() {
 
     override val name = Expires.Companion.name
 
-    override val value : String by lazy {
+    override val value: String by lazy {
         formatDate(date)
     }
+
+    override fun equals(other: Any?) = if (other is Expires) {
+        date == other.date
+    } else false
 
     companion object : HeaderCompanion {
 
@@ -66,13 +107,11 @@ class Expires constructor(val date: Date) : Header() {
         }
 
         override val name = "Expires"
-        override fun from(value: String) = Expires(parseDate(value))
+        override operator fun invoke(value: String) = Expires(parseDate(value))
     }
 }
 
-class CacheControl internal constructor(directives: List<DirectiveType>) : Header() {
-
-    constructor(directive: DirectiveType) : this(listOf(directive))
+class CacheControl internal constructor(val directives: List<DirectiveType>) : Header() {
 
     override val name = CacheControl.Companion.name
 
@@ -80,11 +119,13 @@ class CacheControl internal constructor(directives: List<DirectiveType>) : Heade
         directives.joinToString(", ")
     }
 
-    class CacheControlParseValueException(value: String) : HeaderParseException("Can't parse cache Cache-Control value $value")
+    override fun equals(other: Any?) = if (other is CacheControl) {
+        directives == other.directives
+    } else false
 
     sealed class DirectiveType(val name: String) {
 
-        abstract val value : String
+        abstract val value: String
 
         abstract class Plain(name: String) : DirectiveType(name) {
             override val value = ""
@@ -95,6 +136,12 @@ class CacheControl internal constructor(directives: List<DirectiveType>) : Heade
         }
 
         abstract class Age(name: String, val seconds: Int) : DirectiveType(name) {
+            init {
+                if (!isValid()) {
+                    throw InvalidCacheControlException(this.toString())
+                }
+            }
+
             override val value by lazy {
                 seconds.toString()
             }
@@ -104,6 +151,8 @@ class CacheControl internal constructor(directives: List<DirectiveType>) : Heade
             override fun equals(other: Any?) = if (other is Age) {
                 this.seconds == other.seconds
             } else false
+
+            override fun toString() = "$name=$value"
         }
 
         abstract class Field(name: String) : DirectiveType(name) {
@@ -121,7 +170,7 @@ class CacheControl internal constructor(directives: List<DirectiveType>) : Heade
         }
     }
 
-    class Directive {
+    object Directive {
         class NoCache(override val value: String) : DirectiveType.Field("no-cache") {
             constructor() : this("")
         }
@@ -131,7 +180,11 @@ class CacheControl internal constructor(directives: List<DirectiveType>) : Heade
         }
 
         class Extension(name: String, override val value: String) : DirectiveType.Field(name) {
-            constructor(name: String) : this(name, "")
+            init {
+                if (value.isBlank()) {
+                    throw InvalidCacheControlException(value)
+                }
+            }
         }
 
         class MaxAge(seconds: Int) : DirectiveType.Age("max-age", seconds)
@@ -153,19 +206,70 @@ class CacheControl internal constructor(directives: List<DirectiveType>) : Heade
         object MustRevalidate : DirectiveType.Plain("must-revalidate")
 
         object ProxyRevalidate : DirectiveType.Plain("proxy-revalidate")
+
+        operator fun invoke(value: String) : DirectiveType = try {
+            when {
+            // Fields
+                value == "no-cache=" -> Directive.NoCache()
+                value.startsWith("no-cache=") -> Directive.NoCache(
+                    value.removePrefix("no-cache=").trim('"'))
+
+                value== "private" -> Directive.Private()
+                value.startsWith("private=") -> Directive.Private(
+                    value.removePrefix("private=").trim('"'))
+
+            // Age
+                value.startsWith("max-age=") -> Directive.MaxAge(
+                    value.removePrefix("max-age=").trim('"').toInt())
+                value.startsWith("s-maxage=") -> Directive.SMaxAge(
+                    value.substring("s-maxage=".length).trim('"').toInt())
+                value.startsWith("max-stale=") -> Directive.MaxStale(
+                    value.substring("max-stale=".length).trim('"').toInt())
+                value.startsWith("min-fresh=") -> Directive.MinFresh(
+                    value.removePrefix("min-fresh=").trim('"').toInt())
+
+            // Plain
+                value == "public" -> Directive.Public
+                value == "no-store" -> Directive.NoStore
+                value== "no-transform" -> Directive.NoTransform
+                value == "only-if-cached" -> Directive.OnlyIfCached
+                value== "must-revalidate" -> Directive.MustRevalidate
+                value== "proxy-revalidate" -> Directive.ProxyRevalidate
+
+                else -> {
+                    val eqIndex = value.indexOf('=')
+                    if (eqIndex > 0) {
+                        val (name, directive) = value.split('=')
+                        Directive.Extension(name, directive.trim('"'))
+                    } else {
+                        throw UnknownCacheControlException(value)
+                    }
+                }
+            }
+        } catch (e: NumberFormatException) {
+            throw InvalidCacheControlException(value)
+        }
     }
 
-    class CacheControlBuilder {
-
-        val directives: MutableList<DirectiveType> = LinkedList()
+    data class Builder internal constructor(private val directives: MutableList<DirectiveType> = LinkedList()) {
 
         fun directive(directive: DirectiveType) {
             directives.add(directive)
         }
 
-        internal fun build(init: CacheControlBuilder.() -> Unit): CacheControl {
-            this.init()
-            return CacheControl(directives)
+        fun directives(vararg directives: DirectiveType) {
+            this.directives.addAll(directives)
+        }
+
+        companion object {
+
+            @Throws(HeaderDuplicateException::class)
+            operator fun invoke(init: Builder.() -> Unit): CacheControl {
+                val builder = Builder()
+                builder.init()
+                builder.directives.checkHeaderDuplicates(CacheControl.name)
+                return CacheControl(builder.directives)
+            }
         }
     }
 
@@ -177,82 +281,34 @@ class CacheControl internal constructor(directives: List<DirectiveType>) : Heade
 
         override val name = "Cache-Control"
 
-        @Throws(CacheControlParseValueException::class)
-        override fun from(value: String) : CacheControl {
+        @Throws(InvalidCacheControlException::class)
+        override operator fun invoke(value: String): CacheControl {
 
-            val directives = value.split(';')
-                .map{ it.trim() }
-                .map {
-                when {
-                    value.startsWith("no-cache") -> if (value["no-cache=".length] == '=') {
-                        Directive.NoCache(value.substring("no-cache".length + 1))
-                    } else {
-                        Directive.NoCache()
-                    }
-
-                    value.startsWith("private") -> if (value["private=".length] == '=') {
-                        Directive.Private(value.substring("private=".length))
-                    } else {
-                        Directive.Private()
-                    }
-                    value.startsWith("max-age=") -> try {
-                        Directive.MaxAge(value.substring("max-age=".length).toInt())
-                    } catch (e: NumberFormatException) {
-                        throw CacheControlParseValueException(value)
-                    }
-                    value.startsWith("s-maxage=") -> try {
-                        Directive.SMaxAge(value.substring("s-maxage=".length).toInt())
-                    } catch (e: NumberFormatException) {
-                        throw CacheControlParseValueException(value)
-                    }
-                    value.startsWith("max-stale=") -> try {
-                        Directive.MaxStale(value.substring("max-stale=".length).toInt())
-                    } catch (e: NumberFormatException) {
-                        throw CacheControlParseValueException(value)
-                    }
-                    value.startsWith("min-fresh=") -> try {
-                        Directive.MinFresh(value.substring("min-fresh=".length).toInt())
-                    } catch (e: NumberFormatException) {
-                        throw CacheControlParseValueException(value)
-                    }
-                    value == "public" -> Directive.Public
-                    value == "no-store" -> Directive.NoStore
-                    value == "no-transform" -> Directive.NoTransform
-                    value == "only-if-cached" -> Directive.OnlyIfCached
-                    value == "must-revalidate" -> Directive.MustRevalidate
-                    value == "proxy-revalidate" -> Directive.ProxyRevalidate
-
-                    else -> {
-                        val eqIndex = value.indexOf('=')
-                        if (eqIndex > 0 && value.isNotEmpty()) {
-                            val (name, directive) = value.split('=')
-                            Directive.Extension(name, directive.trim('"'))
-                        } else {
-                            throw CacheControlParseValueException(value)
-                        }
-                    }
-                }
-            }
+            val directives = value.split(',').asSequence()
+                .map { it.trim() }
+                .map { Directive(it) }.toList()
 
             return CacheControl(directives)
         }
 
-        fun build(init: CacheControlBuilder.() -> Unit) = CacheControlBuilder().build(init)
+        @Throws(HeaderDuplicateException::class)
+        operator fun invoke(init: Builder.() -> Unit) = Builder(init)
     }
 }
 
 class Vary constructor(override val value: String) : Header() {
 
-    class UnknownVaryHeader(name: String) : HttpException("Unknown Vary Header $name")
-
     init {
-        @Throws(UnknownVaryHeader::class)
         if (!Header.headerCompanions.containsKey(value)) {
             throw UnknownVaryHeader(value)
         }
     }
 
     override val name = Vary.Companion.name
+
+    override fun equals(other: Any?) = if (other is Vary) {
+        value == other.value
+    } else false
 
     companion object : HeaderCompanion {
 
@@ -263,44 +319,10 @@ class Vary constructor(override val value: String) : Header() {
         override val name = "Vary"
 
         @Throws(UnknownVaryHeader::class)
-        override fun from(headerName: String) = if (Header.headerCompanions.containsKey(headerName)) {
+        override operator fun invoke(headerName: String) = if (Header.headerCompanions.containsKey(headerName.toLowerCase())) {
             Vary(headerName)
         } else {
             throw UnknownVaryHeader(headerName)
-        }
-    }
-}
-
-class IfMatch internal constructor(val isWeak: Boolean, val tag: String) : Header() {
-
-    constructor(tag: String) : this(false, tag)
-
-    override val name = IfMatch.Companion.name
-
-    override val value by lazy {
-        if (isWeak) {
-            "\\W$tag"
-        } else {
-            tag
-        }
-    }
-
-    fun any() = value == "*"
-
-    companion object : HeaderCompanion {
-
-        init {
-            Header.registerCompanion(IfMatch.Companion)
-        }
-
-        fun weak(tag: String) = IfMatch(true, tag)
-
-        fun strong(tag: String) = IfMatch(false, tag)
-
-        override val name = "If-Match"
-        override fun from(value: String) = when {
-            value.startsWith("\\W") -> IfMatch(true, value.removePrefix("\\W"))
-            else -> IfMatch(false, value)
         }
     }
 }
@@ -313,6 +335,10 @@ class IfModifiedSince constructor(val date: Date) : Header() {
         formatDate(date)
     }
 
+    override fun equals(other: Any?) = if (other is IfModifiedSince) {
+        date == other.date
+    } else false
+
     companion object : HeaderCompanion {
 
         init {
@@ -320,23 +346,18 @@ class IfModifiedSince constructor(val date: Date) : Header() {
         }
 
         override val name = "If-Modified-Since"
-        override fun from(value: String) = IfModifiedSince(parseDate(value))
+
+        override operator fun invoke(value: String) = IfModifiedSince(parseDate(value))
     }
 }
 
-class IfNoneMatch internal constructor(val isWeak: Boolean, val tag: String) : Header() {
+class IfNoneMatch internal constructor(isWeak: Boolean, tag: String) : IfMatch(isWeak, tag) {
+
+    internal constructor(pair: Pair<Boolean, String>) : this(pair.first, pair.second)
 
     constructor(tag: String) : this(false, tag)
 
     override val name = IfNoneMatch.Companion.name
-
-    override val value by lazy {
-        if (isWeak) {
-            "\\W$tag"
-        } else {
-            tag
-        }
-    }
 
     companion object : HeaderCompanion {
 
@@ -344,19 +365,16 @@ class IfNoneMatch internal constructor(val isWeak: Boolean, val tag: String) : H
             Header.registerCompanion(IfNoneMatch.Companion)
         }
 
-        fun weak(tag: String) = IfMatch(true, tag)
-
-        fun strong(tag: String) = IfMatch(false, tag)
+        fun weak(tag: String) = IfNoneMatch(true, tag)
+        fun strong(tag: String) = IfNoneMatch(false, tag)
 
         override val name = "If-None-Match"
-        override fun from(value: String) = when {
-            value.startsWith("\\W") -> IfNoneMatch(true, value.removePrefix("\\W"))
-            else -> IfNoneMatch(false, value)
-        }
+
+        override operator fun invoke(value: String) = IfNoneMatch(splitWeak(value))
     }
 }
 
-abstract class IfRange : Header() {
+open class IfRange internal constructor(isWeak: Boolean, tag: String) : IfMatch(isWeak, tag) {
 
     override val name = IfRange.Companion.name
 
@@ -367,26 +385,20 @@ abstract class IfRange : Header() {
         }
 
         override val name = "If-Range"
-        override fun from(value: String) : IfRange = try {
+        override operator fun invoke(value: String): IfRange = try {
             val date = parseDate(value)
             IfRangeDate(date)
         } catch (e: HeaderDateParseException) {
-            IfRangeTag.from(value)
+            IfRangeTag(value)
         }
     }
 }
 
-class IfRangeTag internal constructor(val isWeak: Boolean, val tag: String) : IfRange() {
+class IfRangeTag internal constructor(isWeak: Boolean, tag: String) : IfRange(isWeak, tag) {
 
-    constructor(tag: String): this(false, tag)
+    internal constructor(pair: Pair<Boolean, String>) : this(pair.first, pair.second)
 
-    override val value by lazy {
-        if (isWeak) {
-            "\\W$tag"
-        } else {
-            tag
-        }
-    }
+    constructor(tag: String) : this(false, tag)
 
     companion object {
 
@@ -394,16 +406,21 @@ class IfRangeTag internal constructor(val isWeak: Boolean, val tag: String) : If
 
         fun strong(tag: String) = IfRangeTag(false, tag)
 
-        fun from(value: String) = when {
-            value.startsWith("\\W") -> IfRangeTag(true, value.removePrefix("\\W"))
-            else -> IfRangeTag(false, value)
-        }
+        operator fun invoke(value: String) = IfRangeTag(splitWeak(value))
     }
 }
 
-class IfRangeDate constructor(val date: Date) : IfRange() {
+class IfRangeDate constructor(val date: Date) : IfRange(false, "") {
     override val value by lazy {
-        IfModifiedSince.formatDate(date)
+        Header.formatDate(date)
+    }
+
+    override fun equals(other: Any?) = if (other is IfRangeDate) {
+        date == other.date
+    } else false
+
+    companion object {
+        operator fun invoke(value: String) = IfRangeDate(parseDate(value))
     }
 }
 
@@ -412,8 +429,12 @@ class IfUnmodifiedSince constructor(val date: Date) : Header() {
     override val name = IfUnmodifiedSince.Companion.name
 
     override val value by lazy {
-        IfModifiedSince.formatDate(date)
+        Header.formatDate(date)
     }
+
+    override fun equals(other: Any?) = if (other is IfUnmodifiedSince) {
+        date == other.date
+    } else false
 
     companion object : HeaderCompanion {
 
@@ -422,7 +443,8 @@ class IfUnmodifiedSince constructor(val date: Date) : Header() {
         }
 
         override val name = "If-Unmodified-Since"
-        override fun from(value: String) = IfUnmodifiedSince(parseDate(value))
+
+        override operator fun invoke(value: String) = IfUnmodifiedSince(parseDate(value))
     }
 }
 

@@ -29,7 +29,7 @@ class Forwarded internal constructor(override val value: String) : Header() {
         }
 
         override val name = "Forwarded"
-        override fun from(value: String) = Forwarded(value)
+        override operator fun invoke(value: String) = Forwarded(value)
     }
 }
 
@@ -44,7 +44,7 @@ class MaxForwards internal constructor(override val value: String) : Header() {
         }
 
         override val name = "Max-Forwards"
-        override fun from(value: String) = MaxForwards(value)
+        override operator fun invoke(value: String) = MaxForwards(value)
     }
 }
 
@@ -59,7 +59,7 @@ class Via internal constructor(override val value: String) : Header() {
         }
 
         override val name = "Via"
-        override fun from(value: String) = Via(value)
+        override operator fun invoke(value: String) = Via(value)
     }
 }
 
@@ -74,6 +74,6 @@ class ProxyAuthenticate internal constructor(override val value: String) : Heade
         }
 
         override val name = "Proxy-Authenticate"
-        override fun from(value: String) = ProxyAuthenticate(value)
+        override operator fun invoke(value: String) = ProxyAuthenticate(value)
     }
 }

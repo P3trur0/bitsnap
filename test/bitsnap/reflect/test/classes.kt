@@ -17,7 +17,7 @@
 package bitsnap.reflect.test
 
 interface TestCompanionInterface {
-    val testString : String
+    val testString: String
 }
 
 class AReflection {

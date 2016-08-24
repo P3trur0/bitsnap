@@ -21,7 +21,15 @@ package bitsnap.http
  */
 class Response(
     val status: Status,
-    val body: StringBody
+    val body: Body,
+    val headers: List<Header>
 ) {
 
+    object Builder {
+
+    }
+
+    companion object {
+
+    }
 }

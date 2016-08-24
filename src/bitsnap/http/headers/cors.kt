@@ -29,7 +29,7 @@ class AccessControlAllowOrigin internal constructor(override val value: String) 
         }
 
         override val name = "Access-Control-Allow-Origin"
-        override fun from(value: String) = AccessControlAllowOrigin(value)
+        override operator fun invoke(value: String) = AccessControlAllowOrigin(value)
     }
 }
 
@@ -44,7 +44,7 @@ class AccessControlRequestMethod internal constructor(override val value: String
         }
 
         override val name = "Access-Control-Request-Method"
-        override fun from(value: String) = AccessControlRequestMethod(value)
+        override operator fun invoke(value: String) = AccessControlRequestMethod(value)
     }
 }
 
@@ -59,7 +59,7 @@ class AccessControlRequestHeaders internal constructor(override val value: Strin
         }
 
         override val name = "Access-Control-Request-Headers"
-        override fun from(value: String) = AccessControlRequestHeaders(value)
+        override operator fun invoke(value: String) = AccessControlRequestHeaders(value)
     }
 }
 
@@ -74,7 +74,7 @@ class AccessControlAllowCredentials internal constructor(override val value: Str
         }
 
         override val name = "Access-Control-Allow-Credentials"
-        override fun from(value: String) = AccessControlAllowCredentials(value)
+        override operator fun invoke(value: String) = AccessControlAllowCredentials(value)
     }
 }
 
@@ -89,7 +89,7 @@ class AccessControlExposeHeaders internal constructor(override val value: String
         }
 
         override val name = "Access-Control-Expose-Headers"
-        override fun from(value: String) = AccessControlExposeHeaders(value)
+        override operator fun invoke(value: String) = AccessControlExposeHeaders(value)
     }
 }
 
@@ -104,7 +104,7 @@ class AccessControlMaxAge internal constructor(override val value: String) : Hea
         }
 
         override val name = "Access-Control-Max-Age"
-        override fun from(value: String) = AccessControlMaxAge(value)
+        override operator fun invoke(value: String) = AccessControlMaxAge(value)
     }
 }
 
@@ -119,7 +119,7 @@ class AccessControlAllowMethods internal constructor(override val value: String)
         }
 
         override val name = "Access-Control-Allow-Methods"
-        override fun from(value: String) = AccessControlAllowMethods(value)
+        override operator fun invoke(value: String) = AccessControlAllowMethods(value)
     }
 }
 
@@ -134,7 +134,7 @@ class AccessControlAllowHeaders internal constructor(override val value: String)
         }
 
         override val name = "Access-Control-Allow-Headers"
-        override fun from(value: String) = AccessControlAllowHeaders(value)
+        override operator fun invoke(value: String) = AccessControlAllowHeaders(value)
     }
 }
 

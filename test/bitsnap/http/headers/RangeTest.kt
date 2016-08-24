@@ -14,10 +14,14 @@
  *  limitations under the License.
  **/
 
-package bitsnap.http
+package bitsnap.http.headers
 
-open class HttpException(message: String) : Throwable(message)
+import org.jetbrains.spek.api.Spek
 
-open class HttpBuildException(message: String) : HttpException(message)
+class RangeTest : Spek({
+    describe("${Range.name} header") {
+        it("should be serialized and parsed back") {
 
-open class HttpParseException(message: String) : HttpException(message)
+        }
+    }
+})

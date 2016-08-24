@@ -16,6 +16,8 @@
 
 package bitsnap.http
 
+import bitsnap.exceptions.InvalidStatusException
+import bitsnap.exceptions.UnknownStatusException
 import java.util.*
 
 /**
@@ -24,8 +26,6 @@ import java.util.*
 interface Status {
 
     fun value(): Int
-
-    class StatusParseException(value: String) : Throwable("Unknown Http Status $value")
 
     enum class Informational(val value: Int, val str: String) : Status {
         Continue(100, "Continue"),
@@ -129,32 +129,43 @@ interface Status {
 
     companion object {
 
-        val statuses : Map<String, Status> by lazy {
-            val statusMap : MutableMap<String,Status> = HashMap()
+        val statuses: Map<Int, Status> by lazy {
+            val statusMap: MutableMap<Int, Status> = HashMap()
 
             Informational.values().associateTo(statusMap) {
-                Pair(it.value.toString(), it)
+                Pair(it.value, it)
             }
 
             Success.values().associateTo(statusMap) {
-                Pair(it.value.toString(), it)
+                Pair(it.value, it)
             }
 
             Redirection.values().associateTo(statusMap) {
-                Pair(it.value.toString(), it)
+                Pair(it.value, it)
             }
 
             ClientError.values().associateTo(statusMap) {
-                Pair(it.value.toString(), it)
+                Pair(it.value, it)
             }
 
             ServerError.values().associateTo(statusMap) {
-                Pair(it.value.toString(), it)
+                Pair(it.value, it)
             }
 
             statusMap
         }
 
-        fun from(value: String) = statuses[value] ?: throw StatusParseException(value)
+        operator fun invoke(value: Int) = statuses[value.toInt()] ?: throw UnknownStatusException(value.toString())
+
+        operator fun invoke(value: String) = try {
+            val status = value.toInt()
+            if (status <= 0) {
+                throw NumberFormatException()
+            }
+
+            invoke(status)
+        } catch(e: NumberFormatException) {
+            throw InvalidStatusException(value)
+        }
     }
 }

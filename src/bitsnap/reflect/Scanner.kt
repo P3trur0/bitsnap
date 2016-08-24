@@ -111,8 +111,6 @@ internal object Scanner {
             loaders.add(l)
         }
 
-        println(loaders.size)
-
         return loaders.flatMap { l ->
             l.urLs.asIterable().filter { it.protocol == "file" }
                 .map { File(it.file) }

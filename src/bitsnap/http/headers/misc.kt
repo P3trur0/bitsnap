@@ -16,11 +16,12 @@
 
 package bitsnap.http.headers
 
+import bitsnap.exceptions.AllowMethodParseException
 import bitsnap.http.Header
 import bitsnap.http.Method
+import bitsnap.http.RangeUnit
 import java.time.ZoneId
 import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
 import bitsnap.http.Status as HttpStatus
 import java.util.Date as JavaDate
 
@@ -28,7 +29,6 @@ class Allow internal constructor(val methods: List<Method>) : Header() {
 
     override val name = Authorization.Companion.name
 
-    class AllowMethodParseException(method: String) : Header.HeaderParseException("Unknown HTTP method $method")
 
     override val value by lazy {
         methods.joinToString(", ")
@@ -41,7 +41,7 @@ class Allow internal constructor(val methods: List<Method>) : Header() {
         }
 
         override val name = "Allow"
-        override fun from(value: String) =
+        override operator fun invoke(value: String) =
             Allow(value.split(",")
                 .map { it.trim() }
                 .map {
@@ -65,7 +65,7 @@ class Authorization internal constructor(override val value: String) : Header() 
         }
 
         override val name = "Authorization"
-        override fun from(value: String) = Authorization(value)
+        override operator fun invoke(value: String) = Authorization(value)
     }
 }
 
@@ -80,7 +80,7 @@ class Connection internal constructor(override val value: String) : Header() {
         }
 
         override val name = "Connection"
-        override fun from(value: String) = Connection(value)
+        override operator fun invoke(value: String) = Connection(value)
     }
 }
 
@@ -100,7 +100,7 @@ class Date internal constructor(val date: JavaDate) : Header() {
 
         override val name = "Date"
 
-        override fun from(value: String) = Date(JavaDate.from(ZonedDateTime.parse(value, dateFormat).toInstant()))
+        override operator fun invoke(value: String) = Date(JavaDate.from(ZonedDateTime.parse(value, dateFormat).toInstant()))
     }
 }
 
@@ -119,7 +119,7 @@ class Expect internal constructor(val status: HttpStatus) : Header() {
         }
 
         override val name = "Expect"
-        override fun from(value: String) = Expect(HttpStatus.from(value))
+        override operator fun invoke(value: String) = Expect(HttpStatus(value))
     }
 }
 
@@ -134,7 +134,7 @@ class From internal constructor(override val value: String) : Header() {
         }
 
         override val name = "From"
-        override fun from(value: String) = From(value)
+        override operator fun invoke(value: String) = From(value)
     }
 }
 
@@ -149,7 +149,7 @@ class Host internal constructor(override val value: String) : Header() {
         }
 
         override val name = "Host"
-        override fun from(value: String) = Host(value)
+        override operator fun invoke(value: String) = Host(value)
     }
 }
 
@@ -164,7 +164,7 @@ class LastModified internal constructor(override val value: String) : Header() {
         }
 
         override val name = "Last-Modified"
-        override fun from(value: String) = LastModified(value)
+        override operator fun invoke(value: String) = LastModified(value)
     }
 }
 
@@ -179,7 +179,7 @@ class Link internal constructor(override val value: String) : Header() {
         }
 
         override val name = "Link"
-        override fun from(value: String) = Link(value)
+        override operator fun invoke(value: String) = Link(value)
     }
 }
 
@@ -194,7 +194,7 @@ class Location internal constructor(override val value: String) : Header() {
         }
 
         override val name = "Location"
-        override fun from(value: String) = Location(value)
+        override operator fun invoke(value: String) = Location(value)
     }
 }
 
@@ -209,7 +209,7 @@ class Origin internal constructor(override val value: String) : Header() {
         }
 
         override val name = "Origin"
-        override fun from(value: String) = Origin(value)
+        override operator fun invoke(value: String) = Origin(value)
     }
 }
 
@@ -224,7 +224,7 @@ class P3P internal constructor(override val value: String) : Header() {
         }
 
         override val name = "P3P"
-        override fun from(value: String) = P3P(value)
+        override operator fun invoke(value: String) = P3P(value)
     }
 }
 
@@ -239,7 +239,7 @@ class Permanent internal constructor(override val value: String) : Header() {
         }
 
         override val name = "Permanent"
-        override fun from(value: String) = Permanent(value)
+        override operator fun invoke(value: String) = Permanent(value)
     }
 }
 
@@ -254,7 +254,7 @@ class Pragma internal constructor(override val value: String) : Header() {
         }
 
         override val name = "Pragma"
-        override fun from(value: String) = Pragma(value)
+        override operator fun invoke(value: String) = Pragma(value)
     }
 }
 
@@ -269,7 +269,7 @@ class ProxyAuthorization internal constructor(override val value: String) : Head
         }
 
         override val name = "Proxy-Authorization"
-        override fun from(value: String) = ProxyAuthorization(value)
+        override operator fun invoke(value: String) = ProxyAuthorization(value)
     }
 }
 
@@ -284,27 +284,8 @@ class PublicKeyPins internal constructor(override val value: String) : Header() 
         }
 
         override val name = "Public-Key-Pins"
-        override fun from(value: String) = PublicKeyPins(value)
+        override operator fun invoke(value: String) = PublicKeyPins(value)
     }
-}
-
-sealed class RangeUnit(val name: String) {
-
-    object Bytes : RangeUnit("bytes")
-
-    object None: RangeUnit("none")
-
-    class Specific(name: String) : RangeUnit(name)
-
-    companion object {
-        fun from(value: String) = when (value) {
-            "bytes" -> RangeUnit.Bytes
-            "none" -> RangeUnit.None
-            else -> Specific(value)
-        }
-    }
-
-    override fun toString() = name
 }
 
 class Range internal constructor(val unit: RangeUnit, val range: IntRange) : Header() {
@@ -323,7 +304,7 @@ class Range internal constructor(val unit: RangeUnit, val range: IntRange) : Hea
 
         override val name = "Range"
         // TODO: Range
-        override fun from(value: String) = throw NotImplementedError("Range header haven't been implemented")
+        override operator fun invoke(value: String) = throw NotImplementedError("Range header haven't been implemented")
     }
 }
 
@@ -338,7 +319,7 @@ class Referer internal constructor(override val value: String) : Header() {
         }
 
         override val name = "Referer"
-        override fun from(value: String) = Referer(value)
+        override operator fun invoke(value: String) = Referer(value)
     }
 }
 
@@ -353,7 +334,7 @@ class Refresh internal constructor(override val value: String) : Header() {
         }
 
         override val name = "Refresh"
-        override fun from(value: String) = Refresh(value)
+        override operator fun invoke(value: String) = Refresh(value)
     }
 }
 
@@ -368,7 +349,7 @@ class RetryAfter internal constructor(override val value: String) : Header() {
         }
 
         override val name = "Retry-After"
-        override fun from(value: String) = RetryAfter(value)
+        override operator fun invoke(value: String) = RetryAfter(value)
     }
 }
 
@@ -383,7 +364,7 @@ class Server internal constructor(override val value: String) : Header() {
         }
 
         override val name = "Server"
-        override fun from(value: String) = Server(value)
+        override operator fun invoke(value: String) = Server(value)
     }
 }
 
@@ -398,7 +379,7 @@ class Status internal constructor(override val value: String) : Header() {
         }
 
         override val name = "Status"
-        override fun from(value: String) = Status(value)
+        override operator fun invoke(value: String) = Status(value)
     }
 }
 
@@ -413,7 +394,7 @@ class StrictTransportSecurity internal constructor(override val value: String) :
         }
 
         override val name = "Strict-Transport-Security"
-        override fun from(value: String) = StrictTransportSecurity(value)
+        override operator fun invoke(value: String) = StrictTransportSecurity(value)
     }
 }
 
@@ -428,7 +409,7 @@ class Trailer internal constructor(override val value: String) : Header() {
         }
 
         override val name = "Trailer"
-        override fun from(value: String) = Trailer(value)
+        override operator fun invoke(value: String) = Trailer(value)
     }
 }
 
@@ -443,7 +424,7 @@ class TransferEncoding internal constructor(override val value: String) : Header
         }
 
         override val name = "Transfer-Encoding"
-        override fun from(value: String) = TransferEncoding(value)
+        override operator fun invoke(value: String) = TransferEncoding(value)
     }
 }
 
@@ -458,7 +439,7 @@ class TransferEncodings internal constructor(override val value: String) : Heade
         }
 
         override val name = "TE"
-        override fun from(value: String) = TransferEncodings(value)
+        override operator fun invoke(value: String) = TransferEncodings(value)
     }
 }
 
@@ -473,7 +454,7 @@ class Upgrade internal constructor(override val value: String) : Header() {
         }
 
         override val name = "Upgrade"
-        override fun from(value: String) = Upgrade(value)
+        override operator fun invoke(value: String) = Upgrade(value)
     }
 }
 
@@ -488,7 +469,7 @@ class UpgradeInsecureRequests internal constructor(override val value: String) :
         }
 
         override val name = "Upgrade-Insecure-Requests"
-        override fun from(value: String) = UpgradeInsecureRequests(value)
+        override operator fun invoke(value: String) = UpgradeInsecureRequests(value)
     }
 }
 
@@ -503,7 +484,7 @@ class UserAgent internal constructor(override val value: String) : Header() {
         }
 
         override val name = "User-Agent"
-        override fun from(value: String) = UserAgent(value)
+        override operator fun invoke(value: String) = UserAgent(value)
     }
 }
 
@@ -518,7 +499,7 @@ class Warning internal constructor(override val value: String) : Header() {
         }
 
         override val name = "Warning"
-        override fun from(value: String) = Warning(value)
+        override operator fun invoke(value: String) = Warning(value)
     }
 }
 
@@ -533,6 +514,6 @@ class WWWAuthenticate internal constructor(override val value: String) : Header(
         }
 
         override val name = "WWW-Authenticate"
-        override fun from(value: String) = WWWAuthenticate(value)
+        override operator fun invoke(value: String) = WWWAuthenticate(value)
     }
 }

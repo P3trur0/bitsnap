@@ -16,7 +16,12 @@
 
 package bitsnap.http.headers
 
+import bitsnap.exceptions.HeaderDuplicateException
+import bitsnap.exceptions.InvalidContentDispositionException
+import bitsnap.exceptions.InvalidContentLengthException
+import bitsnap.http.Encoding
 import bitsnap.http.Header
+import bitsnap.http.URL
 import bitsnap.http.splitParameters
 import java.util.*
 
@@ -24,39 +29,51 @@ class ContentDisposition internal constructor(val type: DispositionType, val par
 
     override val name = ContentDisposition.Companion.name
 
-    override val value: String = ""
+    override val value by lazy {
+        "$type; ${parameters.entries.joinToString(", ") { "${it.key}=${it.value}" }}"
+    }
+
+    override fun equals(other: Any?) = if (other is ContentDisposition) {
+        type == other.type && parameters == other.parameters
+    } else false
 
     operator fun get(key: String) = parameters[key]
 
     fun filename() = parameters["filename"]
 
-    class ContentDispositionParseException(parameter: String) :
-        HeaderParseException("Can't parse Content-Disposition parameter $parameter")
-
-    sealed class DispositionType(val type: String) {
+    sealed class DispositionType(val name: String) {
         object Attachment : DispositionType("attachment")
 
         class DispositionExtension(type: String) : DispositionType(type)
 
-        override fun toString() = type
+        override fun equals(other: Any?) = if (other is DispositionType) {
+            name == other.name
+        } else false
+
+        override fun toString() = name
 
         companion object {
-            fun from(name: String) = if (name == "attachment")
+            operator fun invoke(name: String) = if (name == "attachment")
                 DispositionType.Attachment
             else
                 DispositionType.DispositionExtension(name)
         }
     }
 
-    class ContentDispositionBuilder(val name: String) {
-
-        private val parameters: MutableMap<String, String> = HashMap()
+    class Builder internal constructor(private val parameters: MutableMap<String, String> = HashMap()) {
 
         fun parameter(name: String, value: String) = parameters.put(name, value)
 
-        internal fun build(init: ContentDispositionBuilder.() -> Unit) : ContentDisposition {
-            init()
-            return ContentDisposition(DispositionType.from(name), parameters)
+        fun filename(value: String) = parameters.put("filename", value)
+
+        companion object {
+
+            @Throws(HeaderDuplicateException::class)
+            operator fun invoke(name: String, init: Builder.() -> Unit): ContentDisposition {
+                val builder = ContentDisposition.Builder()
+                builder.init()
+                return ContentDisposition(DispositionType(name), builder.parameters)
+            }
         }
     }
 
@@ -68,30 +85,39 @@ class ContentDisposition internal constructor(val type: DispositionType, val par
 
         override val name = "Content-Disposition"
 
-        @Throws(ContentDispositionParseException::class)
-        override fun from(value: String) : ContentDisposition {
+        @Throws(InvalidContentDispositionException::class)
+        override operator fun invoke(value: String): ContentDisposition {
             val semIndex = value.indexOf(";")
-            if (semIndex < 0) {
-                throw ContentDispositionParseException(value)
+
+            if (semIndex > 0) {
+                val name = value.substring(0, semIndex).trim()
+                val parameters = value.substring(semIndex + 1).splitParameters(",") {
+                    InvalidContentDispositionException(it)
+                }
+
+                return ContentDisposition(DispositionType(name), parameters)
             }
 
-            val name = value.substring(0, semIndex)
-            val parameters = value.substring(semIndex).splitParameters {
-                ContentDispositionParseException(it)
-            }
-
-            return ContentDisposition(DispositionType.from(name), parameters)
+            return ContentDisposition(DispositionType(value.trim()), emptyMap())
         }
 
-        fun build(name: String, init: ContentDispositionBuilder.() -> Unit) = ContentDispositionBuilder(name).build(init)
+        operator fun invoke(name: String, init: Builder.() -> Unit) = Builder(name, init)
 
-        fun attachment(init: ContentDispositionBuilder.() -> Unit) = build("attachment", init)
+        fun attachment(init: Builder.() -> Unit) = Builder("attachment", init)
     }
 }
 
-class ContentEncoding internal constructor(override val value: String) : Header() {
+class ContentEncoding internal constructor(val encoding: Encoding) : Header() {
 
     override val name = ContentEncoding.Companion.name
+
+    override val value by lazy {
+        encoding.toString()
+    }
+
+    override fun equals(other: Any?) = if (other is ContentEncoding) {
+        encoding == other.encoding
+    } else false
 
     companion object : HeaderCompanion {
 
@@ -100,13 +126,40 @@ class ContentEncoding internal constructor(override val value: String) : Header(
         }
 
         override val name = "Content-Encoding"
-        override fun from(value: String) = ContentEncoding(value)
+
+        override operator fun invoke(value: String) = ContentEncoding(Encoding(value))
     }
 }
 
-class ContentLanguage internal constructor(override val value: String) : Header() {
+class ContentLanguage internal constructor(val locales: List<Locale>) : Header() {
 
     override val name = ContentLanguage.Companion.name
+
+    override val value by lazy {
+        locales.joinToString(", ")
+    }
+
+    override fun equals(other: Any?) = if (other is ContentLanguage) {
+        locales == other.locales
+    } else false
+
+    data class Builder internal constructor(private val locales: MutableList<Locale> = LinkedList()) {
+
+        fun locale(locale: Locale) = locales.add(locale)
+
+        fun locales(vararg locales: Locale) = this.locales.addAll(locales)
+
+        companion object {
+
+            @Throws(HeaderDuplicateException::class)
+            operator fun invoke(init: Builder.() -> Unit): ContentLanguage {
+                val builder = Builder()
+                builder.init()
+                builder.locales.checkHeaderDuplicates(ContentLanguage.name)
+                return ContentLanguage(builder.locales)
+            }
+        }
+    }
 
     companion object : HeaderCompanion {
 
@@ -115,13 +168,42 @@ class ContentLanguage internal constructor(override val value: String) : Header(
         }
 
         override val name = "Content-Language"
-        override fun from(value: String) = ContentLanguage(value)
+
+        override operator fun invoke(value: String) = ContentLanguage(
+            value.split(",").map {
+                val sepIndex = it.indexOfAny(listOf("-", "_"))
+                if (sepIndex > 0) {
+                    val language = it.substring(0, sepIndex).trim()
+                    val country = it.substring(sepIndex + 1).trim()
+                    Locale(language, country)
+                } else {
+                    Locale(it.trim())
+                }
+            }
+        )
+
+        @Throws(HeaderDuplicateException::class)
+        operator fun invoke(init: Builder.() -> Unit) = Builder(init)
     }
 }
 
-class ContentLength internal constructor(override val value: String) : Header() {
+class ContentLength(val length: Int) : Header() {
+
+    init {
+        if (length <= 0) {
+            throw InvalidContentLengthException(length.toString())
+        }
+    }
 
     override val name = ContentLength.Companion.name
+
+    override val value by lazy {
+        length.toString()
+    }
+
+    override fun equals(other: Any?) = if (other is ContentLength) {
+        length == other.length
+    } else false
 
     companion object : HeaderCompanion {
 
@@ -130,13 +212,26 @@ class ContentLength internal constructor(override val value: String) : Header() 
         }
 
         override val name = "Content-Length"
-        override fun from(value: String) = ContentLength(value)
+
+        override operator fun invoke(value: String) = try {
+            ContentLength(value.toInt())
+        } catch(e: NumberFormatException) {
+            throw InvalidContentLengthException(value)
+        }
     }
 }
 
-class ContentLocation internal constructor(override val value: String) : Header() {
+class ContentLocation internal constructor(val url: URL) : Header() {
 
     override val name = ContentLocation.Companion.name
+
+    override val value by lazy {
+        url.toString()
+    }
+
+    override fun equals(other: Any?) = if (other is ContentLocation) {
+        url == other.url
+    } else false
 
     companion object : HeaderCompanion {
 
@@ -145,26 +240,18 @@ class ContentLocation internal constructor(override val value: String) : Header(
         }
 
         override val name = "Content-Location"
-        override fun from(value: String) = ContentLocation(value)
-    }
-}
 
-class ContentSecurityPolicy internal constructor(override val value: String) : Header() {
-
-    override val name = ContentSecurityPolicy.Companion.name
-
-    companion object : HeaderCompanion {
-
-        init {
-            Header.registerCompanion(ContentSecurityPolicy.Companion)
-        }
-
-        override val name = "Content-Security-Policy"
-        override fun from(value: String) = ContentSecurityPolicy(value)
+        override operator fun invoke(value: String) = ContentLocation(URL(value))
     }
 }
 
 class ContentRange internal constructor(override val value: String) : Header() {
+
+    sealed class Range {
+        class Bounded(val range: IntRange) : Range() { override fun toString() = "${range.first}-${range.last}" }
+        class Head(val prefixLength: Int): Range() { override fun toString() = "-$prefixLength" }
+        class Tail(val suffixLength: Int) : Range() { override fun toString() = "$suffixLength-" }
+    }
 
     override val name = ContentRange.Companion.name
 
@@ -175,7 +262,7 @@ class ContentRange internal constructor(override val value: String) : Header() {
         }
 
         override val name = "Content-Range"
-        override fun from(value: String) = ContentRange(value)
+        override operator fun invoke(value: String) = ContentRange(value)
     }
 }
 
@@ -190,7 +277,7 @@ class ContentType internal constructor(override val value: String) : Header() {
         }
 
         override val name = "Content-Type"
-        override fun from(value: String) = ContentType(value)
+        override operator fun invoke(value: String) = ContentType(value)
     }
 }
 
@@ -206,7 +293,7 @@ class ContentMD5 internal constructor(override val value: String) : Header() {
         }
 
         override val name = "Content-MD5"
-        override fun from(value: String) = ContentMD5(value)
+        override operator fun invoke(value: String) = ContentMD5(value)
     }
 }
 

@@ -25,12 +25,14 @@ class ClassPathTest : Spek({
     val classpath = ClassPath.of(ClassLoader.getSystemClassLoader())
 
     describe("ClassPath reflection") {
-        it("Should retrieve bitsnap.reflect classes") {
-            assertEquals(2, classpath.packageClasses("bitsnap.reflect").size)
-        }
 
-        it("Should retrieve bitsnap.reflect.test classes") {
+        it("should retrieve bitsnap.reflect.test classes") {
+            assertEquals(2, classpath.packageClasses("bitsnap.reflect")
+                .filter { !it.className.endsWith("Test") }.size)
+
             val classes = classpath.packageClasses("bitsnap.reflect.test")
+                .filter { !it.className.endsWith("Interface") }
+
             assertEquals(3, classes.size)
             assertEquals(listOf("A", "B", "C").map { "${it}Reflection" }, classes.map { it.className })
             classes.map { it.kotlinClass.companionObjectInstance }.forEach {
