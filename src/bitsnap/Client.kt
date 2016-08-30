@@ -7,7 +7,7 @@ import java.net.URL
 
 abstract class Client(val timeout: Int) {
 
-    abstract fun perform(request: Request, then: (Response) -> Unit)
+    protected abstract fun perform(request: Request, then: (Response) -> Unit)
 
     fun Options(url: URL, init: Request.Builder.() -> Unit = {}, then: (Response) -> Unit) =
          perform(Request.Builder().invoke(Method.OPTIONS, url, init), then)
@@ -32,8 +32,4 @@ abstract class Client(val timeout: Int) {
 
     fun Connect(url: URL, init: Request.Builder.() -> Unit = {}, then: (Response) -> Unit) =
         perform(Request.Builder().invoke(Method.CONNECT, url, init), then)
-}
-
-class NioClient(val timeout: Int) {
-
 }

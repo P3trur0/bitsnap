@@ -16,11 +16,7 @@
 
 package bitsnap.http.headers
 
-import bitsnap.exceptions.HeaderDateParseException
-import bitsnap.exceptions.HeaderDuplicateException
-import bitsnap.exceptions.InvalidCacheControlException
-import bitsnap.exceptions.UnknownCacheControlException
-import bitsnap.exceptions.UnknownVaryHeader
+import bitsnap.exceptions.*
 import bitsnap.http.Header
 import java.util.*
 import java.util.Date
@@ -252,13 +248,17 @@ class CacheControl internal constructor(val directives: List<DirectiveType>) : H
     }
 
     data class Builder internal constructor(private val directives: MutableList<DirectiveType> = LinkedList()) {
-
+        
         fun directive(directive: DirectiveType) {
-            directives.add(directive)
+            if (this.directives.firstOrNull { it.name == directive.name } == null) {
+                directives.add(directive)
+            } else throw AlreadyAssignedException("Cache-Control directive ${directive.name}")
         }
 
         fun directives(vararg directives: DirectiveType) {
-            this.directives.addAll(directives)
+            directives.forEach {
+                directive(it)
+            }
         }
 
         companion object {

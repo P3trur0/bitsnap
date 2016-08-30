@@ -91,14 +91,14 @@ class HeaderTest : Spek({
                 .map { it.className.removeSuffix("Test") }
                 .sorted()
 
-            val headers = classpath.packageClasses(headersPackage)
+            val testHeaders = classpath.packageClasses(headersPackage)
                 .filter { !headerAbstractVariants.contains(it.className) }
                 .filter { !it.className.endsWith("Kt") }
                 .filter { !it.className.endsWith("Test") }
                 .map { it.className }
                 .sorted()
 
-            assertEquals(headers, testCases)
+            assertEquals(testHeaders, testCases)
         }
     }
 })

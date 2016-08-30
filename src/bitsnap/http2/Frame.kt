@@ -14,18 +14,20 @@
  *  limitations under the License.
  **/
 
-package bitsnap.http.headers
+package bitsnap.http2
 
-import org.jetbrains.spek.api.Spek
-import kotlin.test.assertEquals
 
-class SetCookieTest : Spek({
-    describe("${SetCookie.name} header") {
-        val testCookie ="testCookie=testValue; Path=/test; Domain=test.com; Expires=Wed, 9 Jun 2021 10:18:14 GMT; Max-Age=60; Secure; HttpOnly"
-        val testHeader = SetCookie(testCookie)
-        it("should be serialized and parsed back") {
-            assertEquals("Set-Cookie: $testCookie", testHeader.toString())
-            assertEquals(testHeader, SetCookie(testCookie))
-        }
+abstract class Frame(
+    val length: Int, // 3
+    val type: Byte, // 1
+    val flags: List<Frame.Flag>, // 1
+    val streamId: Int // 4 (first bit ignored)
+) {
+    abstract val payload: ByteArray
+
+    interface Flag {
+        val value: Byte
+
+
     }
-})
+}

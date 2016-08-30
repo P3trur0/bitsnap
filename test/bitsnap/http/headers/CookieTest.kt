@@ -17,11 +17,22 @@
 package bitsnap.http.headers
 
 import org.jetbrains.spek.api.Spek
+import kotlin.test.assertEquals
 
 class CookieTest : Spek({
     describe("${Cookie.name} header") {
-        it("should be serialized and parsed back") {
+        val cookies = listOf(
+            "test1=1; test2=2; test=3",
+            "test0=1; tx=2; te=ax"
+        )
 
+        val testHeaders = cookies.map { Cookie(it) }
+
+        it("should be serialized and parsed back") {
+            testHeaders.forEachIndexed { i, testHeader ->
+                assertEquals("Cookie: ${cookies[i]}", testHeader.toString())
+                assertEquals(testHeader, Cookie(cookies[i]))
+            }
         }
     }
 })

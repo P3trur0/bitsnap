@@ -70,7 +70,7 @@ data class MimeType internal constructor(val type: String, val subType: String, 
                     throw InvalidMimeTypeException(mimeString)
                 }
 
-                val parameters = if (semIndex > 0) mimeString.substring(semIndex + 1).splitParameters() {
+                val parameters = if (semIndex > 0) mimeString.substring(semIndex + 1).splitParametersOrThrowWith() {
                     InvalidMimeTypeException(it)
                 } else {
                     emptyMap()

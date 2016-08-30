@@ -16,6 +16,7 @@
 
 package bitsnap.http.headers
 
+import bitsnap.exceptions.AlreadyAssignedException
 import bitsnap.exceptions.HeaderDuplicateException
 import bitsnap.exceptions.InvalidQualityValueException
 import bitsnap.http.Charset
@@ -64,7 +65,7 @@ class internalTest : Spek({
                 { Accept { types(MimeType("app/xml"), MimeType("app/xml")) } },
                 { CacheControl { directives(CacheControl.Directive.Public, CacheControl.Directive.Public) } }
             ).forEach {
-                assertFailsWith<HeaderDuplicateException> {
+                assertFailsWith<AlreadyAssignedException> {
                     it()
                 }
             }

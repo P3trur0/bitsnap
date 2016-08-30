@@ -18,23 +18,32 @@ buildscript {
     ext.versions = [
         'kotlin': '1.0.3',
         'dokka': '0.9.9',
-        'jackson': '2.8.1'
+        'jackson': '2.8.1',
+        'bintray': '1.7.1',
+        'dagger': '2.6.1',
+        'annotations': '10.0-b28'
     ]
 
     repositories {
         jcenter()
         mavenCentral()
+        maven {
+            url 'http://oss.sonatype.org/content/repositories/snapshots'
+        }
     }
 
     dependencies {
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$versions.kotlin"
         classpath "org.jetbrains.dokka:dokka-gradle-plugin:$versions.dokka"
+        classpath "com.jfrog.bintray.gradle:gradle-bintray-plugin:$versions.bintray"
     }
 }
 
 apply plugin: 'idea'
 apply plugin: 'kotlin'
 apply plugin: 'org.jetbrains.dokka'
+apply plugin: 'maven-publish'
+apply plugin: 'com.jfrog.bintray'
 
 sourceSets {
     main.kotlin.srcDirs = ['src/']
@@ -42,6 +51,7 @@ sourceSets {
 
     test.kotlin.srcDirs = ['test/']
     test.java.srcDirs = []
+    main.java.srcDirs += 'src/main/kotlin'
 }
 
 repositories {
@@ -49,6 +59,8 @@ repositories {
     mavenCentral()
     maven { url "https://jitpack.io" }
 }
+
+//configurations { provided }
 
 dependencies {
     compile "org.jetbrains.kotlin:kotlin-stdlib:$versions.kotlin"
@@ -58,15 +70,72 @@ dependencies {
     compile "com.fasterxml.jackson.core:jackson-databind:$versions.jackson"
     compile "com.fasterxml.jackson.core:jackson-annotations:$versions.jackson"
 
+//    compile "com.google.dagger:dagger:$versions.dagger"
+//    kapt "com.google.dagger:dagger-compiler:$versions.dagger"
+//    provided "org.glassfish:javax.annotation:$versions.annotations"
+
     testCompile "com.github.JetBrains:spek:master"
     testCompile "org.jetbrains.kotlin:kotlin-test:$versions.kotlin"
 }
 
+//sourceSets.main.compileClasspath += configurations.provided
+//sourceSets.test.compileClasspath += configurations.provided
+//sourceSets.test.runtimeClasspath += configurations.provided
+//idea.module.scopes.PROVIDED.plus += configurations.provided
+//
+//kapt {
+//    generateStubs = true
+//}
+
 task wrapper(type: Wrapper) {
-    gradleVersion = '2.13'
+    gradleVersion = '3.0'
 }
 
 dokka {
     outputFormat = 'html'
     sourceDirs = files('src')
+}
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+            from components.java
+
+            groupId 'bitsnap'
+            artifactId 'promise'
+            version '0.0.1'
+        }
+    }
+}
+
+bintray {
+    user = System.getenv('BINTRAY_USER')
+    key = System.getenv('BINTRAY_KEY')
+    publications = ['maven']
+
+    dryRun = false
+    publish = true
+    override = true
+
+    pkg {
+        repo = 'maven'
+        name = 'bitsnap'
+        userOrg = 'bitsnap'
+        desc = 'Opinionated Kotlin Web-framework'
+        websiteUrl = 'https://github.com/bitsnap/bitsnap'
+        issueTrackerUrl = 'https://github.com/bitsnap/bitsnap/issues'
+        vcsUrl = 'https://github.com/bitsnap/bitsnap.git'
+        licenses = ['Apache-2.0']
+        publicDownloadNumbers = true
+
+        githubRepo = 'bitsnap/bitsnap'
+        githubReleaseNotesFile = 'README.md'
+
+        version {
+            name = '0.0.1-SNAPSHOT'
+            desc = 'Bitsnap Snapshot build'
+            released = new Date()
+            // vcsTag = '0.0.1-SNAPSHOT'
+        }
+    }
 }

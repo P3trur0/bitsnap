@@ -17,11 +17,24 @@
 package bitsnap.http.headers
 
 import org.jetbrains.spek.api.Spek
+import kotlin.test.assertEquals
 
 class ContentRangeTest : Spek({
     describe("${ContentRange.name} header") {
-        it("should be serialized and parsed back") {
 
+        val ranges = listOf(
+            "bytes 0-599/600",
+            "none",
+            "specific -10/20"
+        )
+
+        val testHeaders = ranges.map { ContentRange(it) }
+
+        it("should be serialized and parsed back") {
+            testHeaders.forEachIndexed { i, testHeader ->
+                assertEquals("Content-Range: ${ranges[i]}", testHeader.toString())
+                assertEquals(testHeader, ContentRange(ranges[i]))
+            }
         }
     }
 })

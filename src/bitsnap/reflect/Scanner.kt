@@ -31,7 +31,7 @@ internal object Scanner {
         JarFile(file).use { jarFile ->
             val classpath = jarFile.manifest?.mainAttributes?.getValue(Attributes.Name.CLASS_PATH)
 
-            return@use if (classpath != null) {
+            return if (classpath != null) {
                 val files = classpath.split(" ")
                     .filter { it.isNotEmpty() }
                     .filter {
@@ -112,14 +112,17 @@ internal object Scanner {
         }
 
         return loaders.flatMap { l ->
-            l.urLs.asIterable().filter { it.protocol == "file" }
+            l.urLs.asIterable().asSequence()
+                .filter { it.protocol == "file" }
                 .map { File(it.file) }
                 .filter { it.exists() }
+                .toList()
                 .flatMap { scan(it, l) }
                 .toSet()
+                .asSequence()
                 .map {
                     ClassPath.ClassResource(it)
-                }.filterNotNull()
+                }.filterNotNull().toList()
         }
     }
 }

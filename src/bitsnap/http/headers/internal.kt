@@ -18,7 +18,9 @@ package bitsnap.http.headers
 
 import bitsnap.exceptions.InvalidHeaderException
 import bitsnap.exceptions.HeaderDuplicateException
+import bitsnap.exceptions.InvalidHeaderQualityException
 import bitsnap.exceptions.InvalidQualityValueException
+import bitsnap.http.toFloatOrThrow
 import java.util.*
 
 val acceptQualityComparator = Comparator<Pair<*, Int>> { one, other -> one.second.compareTo(other.second) * -1 } // reversed
@@ -47,12 +49,12 @@ internal fun String.splitValueQuality(): Sequence<Pair<String, Int>> = this.spli
                 .removePrefix("q =")
                 .trim()
 
-            try {
-                val quality = (qualityString.toFloat() * 10).toInt()
-                Pair(value.trim(), quality)
-            } catch(e: NumberFormatException) {
-                throw InvalidHeaderException("Cant parse header quality $qualityString")
-            }
+            val quality = (
+                qualityString.toFloatOrThrow(InvalidHeaderQualityException(qualityString))
+                    * 10
+                ).toInt()
+
+            Pair(value.trim(), quality)
         } else {
             Pair(it, 10)
         }

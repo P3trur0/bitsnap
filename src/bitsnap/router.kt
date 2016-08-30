@@ -20,7 +20,7 @@ import bitsnap.exceptions.ActionNotFoundException
 import bitsnap.http.Method
 import java.util.*
 
-internal class Router {
+class Router {
 
     class Builder(val routeBuilders: MutableMap<String, Route.Builder> = HashMap()) {
 
@@ -46,7 +46,7 @@ internal class Router {
     }
 }
 
-internal class Route(private val actions: Map<Method, Application.Request.() -> Unit>) {
+class Route(private val actions: Map<Method, Application.Request.() -> Unit>) {
 
     fun run(method: Method, appRequest: Application.Request) = runOrElse(method, appRequest) {
         throw ActionNotFoundException(method, appRequest.request.url.toString())

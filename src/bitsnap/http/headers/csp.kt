@@ -1,3 +1,19 @@
+/**
+ *  Copyright 2016 Yuriy Yarosh
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ **/
+
 package bitsnap.http.headers
 
 import bitsnap.http.Header
@@ -35,7 +51,7 @@ class ContentSecurityPolicy internal constructor(override val value: String) : H
         class Specific(content: String) : Source(content)
         object Empty : Source("")
         object Https : Source("https:")
-        class URL(val url: bitsnap.http.URL) : Source(url.toString())
+        class URL(url: bitsnap.http.URL) : Source(url.toString())
         class Data : Source("data:")
         class MediaStream : Source("mediastream:")
         class Blob : Source("blob:")
@@ -88,7 +104,7 @@ class ContentSecurityPolicy internal constructor(override val value: String) : H
         class ReportURI(target: Target, url: Source.URL) : TargetedDirectiveType("report-uri", target, url)
         class Sandbox(target: Target, source: Source.Specific) : TargetedDirectiveType("sandbox", target, source)
         class ScriptSource(target: Target, source: Source.Specific) : TargetedDirectiveType("script-src", target, source)
-        class StrictDynamic(target: Target, override val value: String) : DirectiveType("script-src 'strict-dynamic'")
+        class StrictDynamic(override val value: String) : DirectiveType("script-src 'strict-dynamic'")
         class StyleSource(target: Target, source: Source) : TargetedDirectiveType("style-src", target, source)
         class UpgradeInsecureRequests : DirectiveType("upgrade-insecure-requests") {
             override val value = ""

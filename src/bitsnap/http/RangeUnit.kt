@@ -13,10 +13,10 @@ sealed class RangeUnit(val name: String) {
     } else false
 
     companion object {
-        operator fun invoke(value: String) = when (value) {
+        operator fun invoke(value: String) = when (value.split(' ')[0]) {
             "bytes" -> RangeUnit.Bytes
             "none" -> RangeUnit.None
-            else -> Specific(value)
+            else -> Specific(value.filter { !it.isWhitespace() })
         }
     }
 

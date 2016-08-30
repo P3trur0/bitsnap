@@ -20,24 +20,10 @@ class BodyParseException(message: String) : HttpException(message)
 
 class UnknownCharsetException(name: String) : HttpException("Unknown charset $name")
 
-open class HeaderException(message: String) : HttpException(message)
-
-class InvalidHeaderException(header: String) : HeaderException("Invalid header $header")
-
-class HeaderDateParseException(value: String) : HeaderException("Can't parse Date $value")
-
-class InvalidMimeTypeException(message: String) : HttpException("MimeType $message is invalid")
-
-open class RequestBuilderException(massage: String) : HttpException(massage)
-
-class RequestHeaderAlreadyAssignedException(name: String) : RequestBuilderException("Request header $name have been assigned already")
-
-class RequestBodyAlreadyAssignedException : RequestBuilderException("Request body have been assigned already")
-
-class UnknownSecurityDirectiveException(value: String) : HeaderException("Unknown Security Directive $value")
-
 class UnknownStatusException(value: String) : HttpException("Invalid Http Status $value")
 
 class InvalidStatusException(value: String) : HttpException("Invalid Http Status $value")
 
 class InvalidURLException(value: String) : HeaderException("Invalid URL $value")
+
+class InvalidRangeValue(value: String) : HeaderException("Invalid Content-Range value $value")

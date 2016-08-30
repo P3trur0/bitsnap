@@ -19,10 +19,9 @@ package bitsnap.http.headers
 import bitsnap.exceptions.HeaderDuplicateException
 import bitsnap.exceptions.InvalidContentDispositionException
 import bitsnap.exceptions.InvalidContentLengthException
-import bitsnap.http.Encoding
-import bitsnap.http.Header
-import bitsnap.http.URL
-import bitsnap.http.splitParameters
+import bitsnap.exceptions.InvalidMD5Value
+import bitsnap.http.*
+import bitsnap.http.Range
 import java.util.*
 
 class ContentDisposition internal constructor(val type: DispositionType, val parameters: Map<String, String>) : Header() {
@@ -91,7 +90,7 @@ class ContentDisposition internal constructor(val type: DispositionType, val par
 
             if (semIndex > 0) {
                 val name = value.substring(0, semIndex).trim()
-                val parameters = value.substring(semIndex + 1).splitParameters(",") {
+                val parameters = value.substring(semIndex + 1).splitParametersOrThrowWith(",") {
                     InvalidContentDispositionException(it)
                 }
 
@@ -213,11 +212,8 @@ class ContentLength(val length: Int) : Header() {
 
         override val name = "Content-Length"
 
-        override operator fun invoke(value: String) = try {
-            ContentLength(value.toInt())
-        } catch(e: NumberFormatException) {
-            throw InvalidContentLengthException(value)
-        }
+        override operator fun invoke(value: String) =
+            ContentLength(value.toIntOrThrow(InvalidContentLengthException(value)))
     }
 }
 
@@ -245,15 +241,21 @@ class ContentLocation internal constructor(val url: URL) : Header() {
     }
 }
 
-class ContentRange internal constructor(override val value: String) : Header() {
-
-    sealed class Range {
-        class Bounded(val range: IntRange) : Range() { override fun toString() = "${range.first}-${range.last}" }
-        class Head(val prefixLength: Int): Range() { override fun toString() = "-$prefixLength" }
-        class Tail(val suffixLength: Int) : Range() { override fun toString() = "$suffixLength-" }
-    }
+class ContentRange internal constructor(val range: Range, val unit: RangeUnit) : Header() {
 
     override val name = ContentRange.Companion.name
+
+    override val value by lazy {
+        if (unit == RangeUnit.None) {
+            "$unit"
+        } else {
+            "$unit $range"
+        }
+    }
+
+    override fun equals(other: Any?) = if (other is ContentRange) {
+        range == other.range && unit == other.unit
+    } else false
 
     companion object : HeaderCompanion {
 
@@ -262,13 +264,29 @@ class ContentRange internal constructor(override val value: String) : Header() {
         }
 
         override val name = "Content-Range"
-        override operator fun invoke(value: String) = ContentRange(value)
+
+        override operator fun invoke(value: String) : ContentRange {
+            val chunks = value.split(' ')
+            return if (chunks.size == 2) {
+                ContentRange(Range(chunks[1]), RangeUnit(chunks[0]))
+            } else {
+                ContentRange(Range.None, RangeUnit(chunks[0]))
+            }
+        }
     }
 }
 
-class ContentType internal constructor(override val value: String) : Header() {
+class ContentType internal constructor(val type: MimeType) : Header() {
 
     override val name = ContentType.Companion.name
+
+    override val value by lazy {
+        type.toString()
+    }
+
+    override fun equals(other: Any?) = if (other is ContentType) {
+        type == other.type
+    } else false
 
     companion object : HeaderCompanion {
 
@@ -277,14 +295,21 @@ class ContentType internal constructor(override val value: String) : Header() {
         }
 
         override val name = "Content-Type"
-        override operator fun invoke(value: String) = ContentType(value)
+        override operator fun invoke(value: String) = ContentType(MimeType(value))
     }
 }
 
 class ContentMD5 internal constructor(override val value: String) : Header() {
 
+    init {
+        if (!value.matches(md5regex)) throw InvalidMD5Value(value)
+    }
+
     override val name = ContentMD5.Companion.name
 
+    override fun equals(other: Any?) = if (other is ContentMD5) {
+        value == other.value
+    } else false
 
     companion object : HeaderCompanion {
 
@@ -292,8 +317,9 @@ class ContentMD5 internal constructor(override val value: String) : Header() {
             Header.registerCompanion(ContentMD5.Companion)
         }
 
+        internal val md5regex = "([a-fA-F0-9]{32})".toRegex()
+
         override val name = "Content-MD5"
         override operator fun invoke(value: String) = ContentMD5(value)
     }
 }
-

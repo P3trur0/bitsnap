@@ -16,8 +16,7 @@
 
 package bitsnap.http
 
-import bitsnap.exceptions.RequestBodyAlreadyAssignedException
-import bitsnap.exceptions.RequestHeaderAlreadyAssignedException
+import bitsnap.exceptions.AlreadyAssignedException
 import java.net.URL
 import java.util.*
 
@@ -39,10 +38,10 @@ class Request internal constructor(
     class Builder internal constructor(private val headers: MutableList<Header> = LinkedList(),
                                        private var body: Body? = null) {
 
-        @Throws(RequestHeaderAlreadyAssignedException::class)
+        @Throws(AlreadyAssignedException::class)
         fun header(header: Header) {
             if (!header.allowMultiple && headers.filter { it.name == header.name }.size > 0) {
-                throw RequestHeaderAlreadyAssignedException(header.name)
+                throw AlreadyAssignedException(header.name)
             }
 
             synchronized(headers) {
@@ -50,18 +49,18 @@ class Request internal constructor(
             }
         }
 
-        @Throws(RequestHeaderAlreadyAssignedException::class)
+        @Throws(AlreadyAssignedException::class)
         fun headers(vararg headers: Header) {
             headers.forEach { header(it) }
         }
 
-        @Throws(RequestBodyAlreadyAssignedException::class)
+        @Throws(AlreadyAssignedException::class)
         fun body(body: Body) {
             synchronized(body) {
                 if (this.body == null) {
                     this.body = body
                 } else {
-                    throw RequestBodyAlreadyAssignedException()
+                    throw AlreadyAssignedException("body")
                 }
             }
         }

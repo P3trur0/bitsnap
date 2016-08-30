@@ -1,2 +1,0 @@
-package bitsnap.http
-

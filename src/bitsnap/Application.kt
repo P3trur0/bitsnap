@@ -16,18 +16,18 @@
 
 package bitsnap
 
-import bitsnap.http.Body
 import bitsnap.http.Header
-import bitsnap.http.Response
-import bitsnap.http.Status
+import bitsnap.nio.NioServer
 import com.fasterxml.jackson.databind.JsonNode
 import bitsnap.http.Request as HttpRequest
 import java.util.*
 
 class Application internal constructor(
-    private val server: Server = Server.default(Application.requestHandler),
-    val client: Client
-) {
+    private val config: Application.Config,
+    private val router : Router = Router(),
+    private val server: Server = NioServer(router),
+    private val client: Client
+    ) {
 
     class Request(
         val request: HttpRequest,
@@ -55,10 +55,34 @@ class Application internal constructor(
         }
     }
 
-    companion object {
-        internal val requestHandler = { request: HttpRequest ->
-            Response(Status.Success.OK, Body(""), emptyList())
+    data class Config (
+        val host: String,
+        val port: Int,
+        val isSSL: Boolean
+    ) {
+        data class Builder(
+            private var host: String? = null,
+            private var port: Int? = null,
+            private var isSSL: Boolean? = null
+        ) {
+            fun host(host: String) { this.host = host }
+            fun port(port: Int) { this.port = port }
+            fun ssl() { this.isSSL = true }
+
+            companion object {
+                operator fun invoke(init: Builder.() -> Unit) : Config{
+                    val builder = Builder()
+                    builder.init()
+                    return Config(builder.host ?: "0.0.0.0",
+                        builder.port ?: 8080,
+                        builder.isSSL ?: false)
+                }
+            }
         }
+    }
+
+    companion object {
+        operator fun invoke(configInit: Application.Config.Builder.() -> Unit) {}
     }
 }
 

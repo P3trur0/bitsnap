@@ -16,12 +16,30 @@
 
 package bitsnap.http.headers
 
+import bitsnap.http.toHexString
 import org.jetbrains.spek.api.Spek
+import java.security.MessageDigest
+import kotlin.test.assertEquals
 
 class ContentMD5Test : Spek({
     describe("${ContentMD5.name} header") {
-        it("should be serialized and parsed back") {
 
+        val hashSums = listOf(
+            "TEST1",
+            "TEST2",
+            "TEST3"
+        ).map {
+            val digest = MessageDigest.getInstance("MD5")
+            digest.digest(it.toByteArray()).toHexString()
+        }
+
+        val testHeaders = hashSums.map { ContentMD5(it) }
+
+        it("should be serialized and parsed back") {
+            testHeaders.forEachIndexed { i, testHeader ->
+                assertEquals("Content-MD5: ${hashSums[i]}", testHeader.toString())
+                assertEquals(testHeader, ContentMD5(hashSums[i]))
+            }
         }
     }
 })

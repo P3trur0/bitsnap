@@ -16,10 +16,7 @@
 
 package bitsnap.http.headers
 
-import bitsnap.exceptions.HeaderDateParseException
-import bitsnap.exceptions.UnknownCharsetException
-import bitsnap.exceptions.HeaderDuplicateException
-import bitsnap.exceptions.UnknownEncodingException
+import bitsnap.exceptions.*
 import bitsnap.http.*
 import java.util.*
 import java.util.Date
@@ -43,14 +40,18 @@ class Accept internal constructor(val types: List<Pair<MimeType, Int>>) : Header
     data class Builder internal constructor(private val types: MutableList<Pair<MimeType, Int>> = LinkedList()) {
 
         private fun type(type: Pair<MimeType, Int>) = checkQuality(Accept.name, type.second) {
-            types.add(type)
+            if (types.firstOrNull() { it.first == type.first } != null) {
+                throw AlreadyAssignedException("MimeType ${type.first.typeToString()}")
+            } else types.add(type)
         }
 
         fun type(type: MimeType, quality: Int) = type(Pair(type, quality))
 
         fun type(type: MimeType) = type(Pair(type, 10))
 
-        fun types(vararg types: MimeType) = this.types.addAll(types.asSequence().map { Pair(it, 10) })
+        fun types(vararg types: MimeType) = types.forEach {
+            type(Pair(it, 10))
+        }
 
         companion object {
 
@@ -101,14 +102,18 @@ class AcceptCharset internal constructor(val charsets: List<Pair<Charset, Int>>)
     data class Builder internal constructor(private val charsets: MutableList<Pair<Charset, Int>> = LinkedList()) {
 
         private fun charset(charset: Pair<Charset, Int>) = checkQuality(AcceptCharset.name, charset.second) {
-            charsets.add(charset)
+            if (charsets.firstOrNull() { it.first == charset.first } != null) {
+                throw AlreadyAssignedException("Charset ${charset.first.toString()}")
+            } else charsets.add(charset)
         }
 
         fun charset(charset: Charset, quality: Int) = charset(Pair(charset, quality))
 
         fun charset(charset: Charset) = charset(charset, 10)
 
-        fun charsets(vararg charsets: Charset) = this.charsets.addAll(charsets.asSequence().map { Pair(it, 10) })
+        fun charsets(vararg charsets: Charset) = charsets.forEach {
+            charset(Pair(it, 10))
+        }
 
         companion object {
 
@@ -159,15 +164,19 @@ class AcceptEncoding internal constructor(val types: List<Pair<Encoding, Int>>) 
 
     data class Builder internal constructor(private val encodings: MutableList<Pair<Encoding, Int>> = LinkedList()) {
 
-        private fun encoding(type: Pair<Encoding, Int>) = checkQuality(AcceptEncoding.name, type.second) {
-            encodings.add(type)
+        private fun encoding(encoding: Pair<Encoding, Int>) = checkQuality(AcceptEncoding.name, encoding.second) {
+            if (encodings.firstOrNull() { it.first == encoding.first } != null) {
+                throw AlreadyAssignedException("Encoding ${encoding.first.toString()}")
+            } else encodings.add(encoding)
         }
 
-        fun encoding(type: Encoding, quality: Int) = encoding(Pair(type, quality))
+        fun encoding(encoding: Encoding, quality: Int) = encoding(Pair(encoding, quality))
 
-        fun encoding(type: Encoding) = encoding(type, 10)
+        fun encoding(encoding: Encoding) = encoding(encoding, 10)
 
-        fun encodings(vararg types: Encoding) = this.encodings.addAll(types.asSequence().map { Pair(it, 10) })
+        fun encodings(vararg encodings: Encoding) = encodings.forEach {
+            encoding(Pair(it, 10))
+        }
 
         companion object {
             @Throws(HeaderDuplicateException::class)
@@ -220,14 +229,18 @@ class AcceptLanguage internal constructor(val locales: List<Pair<Locale, Int>>) 
     data class Builder internal constructor(private val locales: MutableList<Pair<Locale, Int>> = LinkedList()) {
 
         private fun locale(locale: Pair<Locale, Int>) = checkQuality(AcceptLanguage.name, locale.second) {
-            locales.add(locale)
+            if (locales.firstOrNull() { it.first == locale.first } != null) {
+                throw AlreadyAssignedException("Encoding ${locale.first.toString()}")
+            } else locales.add(locale)
         }
 
         fun locale(locale: Locale, quality: Int) = locale(Pair(locale, quality))
 
         fun locale(locale: Locale) = locale(locale, 10)
 
-        fun locales(vararg locales: Locale) = this.locales.addAll(locales.asSequence().map { Pair(it, 10) })
+        fun locales(vararg locales: Locale) = locales.forEach {
+            locale(Pair(it, 10))
+        }
 
         companion object {
 

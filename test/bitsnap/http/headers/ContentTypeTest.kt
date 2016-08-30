@@ -17,11 +17,25 @@
 package bitsnap.http.headers
 
 import org.jetbrains.spek.api.Spek
+import kotlin.test.assertEquals
 
 class ContentTypeTest : Spek({
     describe("${ContentType.name} header") {
-        it("should be serialized and parsed back") {
 
+        val testTypes = listOf("application/json; param1=1; param2=3",
+            "application/xml; param2=2; param1=3",
+            "image/png; param=1"
+            )
+
+        val testHeaders = testTypes.map {
+            ContentType(it)
+        }
+
+        it("should be serialized and parsed pack") {
+            testHeaders.forEachIndexed { i, testHeader ->
+                assertEquals("Content-Type: ${testTypes[i]}", testHeader.toString())
+                assertEquals(testHeader, ContentType(testTypes[i]))
+            }
         }
     }
 })

@@ -16,6 +16,20 @@
 
 package bitsnap.exceptions
 
+open class HeaderException(message: String) : HttpException(message)
+
+class AlreadyAssignedException(name: String) : HeaderException("$name have been assigned already")
+
+class InvalidHeaderException(header: String) : HeaderException("Invalid header $header")
+
+class InvalidMimeTypeException(message: String) : HeaderException("MimeType $message")
+
+class InvalidCookie(value: String) : HeaderException("Invalid cookie $value")
+
+class InvalidHeaderQualityException(quality: String) : HeaderException("Invalid header quality $quality")
+
+class HeaderDateParseException(value: String) : HeaderException("Can't parse Date $value")
+
 class UnknownEncodingException(name: String) : HeaderException("Unknown $name encoding")
 
 class InvalidCacheControlException(value: String) : HeaderException("Invalid Cache-Control $value")
@@ -35,3 +49,7 @@ class HeaderDuplicateException(name: String, value: String) : HeaderException("$
 class InvalidQualityValueException(name: String, quality: String) : HeaderException("Invalid $name quality $quality")
 
 class AllowMethodParseException(method: String) : HeaderException("Unknown HTTP method $method")
+
+class InvalidMD5Value(value: String) : HeaderException("Invalid MD5 $value")
+
+class UnknownSecurityDirectiveException(value: String) : HeaderException("Unknown Security Directive $value")

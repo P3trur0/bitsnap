@@ -26,7 +26,7 @@ class IfRangeTest : Spek({
 
         val now = Date()
         val dateString = Header.formatDate(now)
-        val testDateHeader: IfRange = IfRange(dateString) as IfRange
+        val testDateHeader: IfRange = IfRange(dateString)
 
         val weakTag : IfRange = IfRangeTag.weak("test")
         val weakString = "\\W\"test\""
