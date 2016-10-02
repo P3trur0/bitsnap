@@ -1,9 +1,7 @@
-/.idea
-/bitsnap.i*
-
-/.gradle/
-/build/
-/lib/
+.idea
+bitsnap.i*
+target/
+project/target/
 
 *~
 .DS_Store
