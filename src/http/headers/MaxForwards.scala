@@ -16,7 +16,13 @@
 package io.bitsnap.http
 package headers
 
+import scala.util.{Failure, Success, Try}
+
 class MaxForwards(val numberOfForwards: Int) extends Header {
+  if (numberOfForwards <= 0) {
+    throw MaxForwards.Invalid
+  }
+
   override val name: String = MaxForwards.name
 
   override val value: String = numberOfForwards.toString
@@ -37,11 +43,10 @@ object MaxForwards {
 
   object Invalid extends Header.Invalid
 
-  def apply(string: String) = {
-    try {
-      new MaxForwards(string.toInt)
-    } catch {
-      case _: NumberFormatException => throw Invalid
+  def apply(string: String): Try[MaxForwards] = {
+    Try(new MaxForwards(string.toInt)) match {
+      case Failure(e) if e.isInstanceOf[NumberFormatException] => Failure(Invalid)
+      case Success(e)                                          => Success(e)
     }
   }
 }

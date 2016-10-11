@@ -16,6 +16,8 @@
 package io.bitsnap.http
 package headers
 
+import scala.util.{Failure, Success, Try}
+
 final class AccessControlAllowCredentials(val areAllowed: Boolean) extends Header {
   override val name: String = AccessControlAllowCredentials.name
 
@@ -36,10 +38,10 @@ object AccessControlAllowCredentials {
 
   object Invalid extends Header.Invalid
 
-  def apply(string: String) = string.toLowerCase.trim match {
-    case "true"  => new AccessControlAllowCredentials(true)
-    case "false" => new AccessControlAllowCredentials(false)
-    case _       => throw Invalid
+  def apply(string: String): Try[AccessControlAllowCredentials] = string.toLowerCase.trim match {
+    case "true"  => Success(new AccessControlAllowCredentials(true))
+    case "false" => Success(new AccessControlAllowCredentials(false))
+    case _       => Failure(Invalid)
   }
 }
 
@@ -68,14 +70,20 @@ object AccessControlAllowHeaders {
 
   object Invalid extends Header.Invalid
 
-  def apply(string: String) = {
-    if (string.isEmpty) { throw Invalid }
-
-    val headerNames = string split "," map { _.trim } filterNot { _.isEmpty }
-    if (headerNames.isEmpty) {
-      throw Invalid
+  def apply(string: String): Try[AccessControlAllowHeaders] = {
+    if (string.trim.isEmpty) {
+      Failure(Invalid)
     } else {
-      new AccessControlAllowHeaders(headerNames)
+      val headerNames = string split "," map {
+        _.trim
+      } filterNot {
+        _.isEmpty
+      }
+
+      headerNames.isEmpty match {
+        case true => Failure(Invalid)
+        case _    => Success(new AccessControlAllowHeaders(headerNames))
+      }
     }
   }
 }
@@ -105,15 +113,23 @@ object AccessControlAllowMethods {
 
   object Invalid extends Header.Invalid
 
-  def apply(string: String) = {
-    if (string.isEmpty) { throw Invalid }
-
-    try {
-      new AccessControlAllowMethods(string split ',' map { i =>
-        Method(i.trim)
-      })
-    } catch {
-      case Method.Unknown => throw Invalid
+  def apply(string: String): Try[AccessControlAllowMethods] = {
+    if (string.trim.isEmpty) {
+      Failure(Invalid)
+    } else {
+      try {
+        Success(
+          new AccessControlAllowMethods(
+            string
+              .split(',')
+              .map { i =>
+                Method(i.trim)
+              }
+              .filter { _.isSuccess }
+              .map { _.get }))
+      } catch {
+        case Method.Unknown => Failure(Invalid)
+      }
     }
   }
 }
@@ -145,10 +161,13 @@ object AccessControlAllowOrigin {
 
   object Invalid extends Header.Invalid
 
-  def apply(string: String) = {
-    if (string.isEmpty) { throw Invalid }
-
-    new AccessControlAllowOrigin(string)
+  def apply(string: String): Try[AccessControlAllowOrigin] = {
+    val trimmed = string.trim
+    if (trimmed.isEmpty) {
+      Failure(Invalid)
+    } else {
+      Success(new AccessControlAllowOrigin(trimmed))
+    }
   }
 }
 
@@ -177,14 +196,16 @@ object AccessControlExposeHeaders {
 
   object Invalid extends Header.Invalid
 
-  def apply(string: String) = {
-    if (string.isEmpty) { throw Invalid }
-
-    val headerNames = string split ',' map { _.trim } filterNot { _.isEmpty }
-    if (headerNames.isEmpty) {
-      throw Invalid
+  def apply(string: String): Try[AccessControlExposeHeaders] = {
+    if (string.isEmpty) {
+      Failure(Invalid)
     } else {
-      new AccessControlExposeHeaders(headerNames)
+      val headerNames = string split ',' map { _.trim } filterNot { _.isEmpty }
+      if (headerNames.isEmpty) {
+        Failure(Invalid)
+      } else {
+        Success(new AccessControlExposeHeaders(headerNames))
+      }
     }
   }
 }
@@ -214,14 +235,16 @@ object AccessControlMaxAge {
 
   object Invalid extends Header.Invalid
 
-  def apply(string: String) = {
-    if (string.isEmpty) { throw Invalid }
-
-    val deltaSeconds = string.toInt
-    if (deltaSeconds <= 0) {
-      throw Invalid
+  def apply(string: String): Try[AccessControlMaxAge] = {
+    if (string.isEmpty) {
+      Failure(Invalid)
     } else {
-      new AccessControlMaxAge(deltaSeconds)
+      val deltaSeconds = string.toInt
+      if (deltaSeconds <= 0) {
+        Failure(Invalid)
+      } else {
+        Success(new AccessControlMaxAge(deltaSeconds))
+      }
     }
   }
 }
@@ -251,14 +274,16 @@ object AccessControlRequestHeaders {
 
   object Invalid extends Header.Invalid
 
-  def apply(string: String) = {
-    if (string.isEmpty) { throw Invalid }
-
-    val headerNames = string split ',' map { _.trim } filterNot { _.isEmpty }
-    if (headerNames.isEmpty) {
-      throw Invalid
+  def apply(string: String): Try[AccessControlRequestHeaders] = {
+    if (string.trim.isEmpty) {
+      Failure(Invalid)
     } else {
-      new AccessControlRequestHeaders(headerNames)
+      val headerNames = string split ',' map { _.trim } filterNot { _.isEmpty }
+      if (headerNames.isEmpty) {
+        Failure(Invalid)
+      } else {
+        Success(new AccessControlRequestHeaders(headerNames))
+      }
     }
   }
 }
@@ -281,5 +306,8 @@ object AccessControlRequestMethod {
 
   override def toString = name
 
-  def apply(string: String) = new AccessControlRequestMethod(Method(string))
+  def apply(string: String): Try[AccessControlRequestMethod] = Method(string) match {
+    case Success(method) => Success(new AccessControlRequestMethod(method))
+    case Failure(e)      => Failure(e)
+  }
 }

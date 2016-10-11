@@ -19,6 +19,8 @@ package headers
 
 import io.bitsnap.util._
 
+import scala.util.{Failure, Success, Try}
+
 final class XContentDuration(val duration: Float) extends Header {
 
   override val name = XContentDuration.name
@@ -41,14 +43,18 @@ object XContentDuration {
 
   object Invalid extends Header.Invalid
 
-  def apply(string: String) =
-    try {
-      if (string.isEmpty) { throw Invalid }
+  def apply(string: String): Try[XContentDuration] = {
+    val trimmed = string.trim
 
-      new XContentDuration(string.toFloat)
-    } catch {
-      case _: NumberFormatException => throw Invalid
+    if (trimmed.isEmpty) {
+      Failure(Invalid)
+    } else {
+      Try(new XContentDuration(trimmed.toFloat)) match {
+        case Failure(e) if e.isInstanceOf[NumberFormatException] => Failure(Invalid)
+        case e                                                   => e
+      }
     }
+  }
 }
 
 final class XFrameOptions(val directive: XFrameOptions.Directive) extends Header {
@@ -90,14 +96,14 @@ object XFrameOptions {
 
   class AllowFrom(origin: String) extends Directive("ALLOW-FROM", Some(origin))
 
-  def apply(string: String) =
-    new XFrameOptions(string match {
-      case _ if string.startsWith(Deny.name)       => Deny
-      case _ if string.startsWith(SameOrigin.name) => SameOrigin
+  def apply(string: String): Try[XFrameOptions] =
+    (string match {
+      case _ if string.startsWith(Deny.name)       => Success(Deny)
+      case _ if string.startsWith(SameOrigin.name) => Success(SameOrigin)
       case _ if string.startsWith("ALLOW-FROM") =>
-        new AllowFrom(string.substringAfter(' ').getOrElse { throw Invalid })
-      case _ => throw Invalid
-    })
+        Try(new AllowFrom(string.substringAfter(' ').getOrElse { throw Invalid }))
+      case _ => Failure(Invalid)
+    }).map { new XFrameOptions(_) }
 }
 
 final class XSSProtection(val enabled: Boolean, val blockMode: Boolean) extends Header {
@@ -128,17 +134,19 @@ object XSSProtection {
 
   object Invalid extends Header.Invalid
 
-  def apply(string: String) = {
-    if (string.isEmpty) { throw Invalid }
-
-    new XSSProtection(enabled = string(0) == '1', blockMode = if (string.size > 1) {
-      if (string.substringAfter(' ').getOrElse { throw Invalid } == "mode=block") {
-        true
-      } else {
-        throw Invalid
-      }
+  def apply(string: String): Try[XSSProtection] = {
+    if (string.trim.isEmpty) {
+      Failure(Invalid)
     } else {
-      false
-    })
+      Try(new XSSProtection(enabled = string(0) == '1', blockMode = if (string.size > 1) {
+        if (string.substringAfter(' ').getOrElse { throw Invalid } == "mode=block") {
+          true
+        } else {
+          throw Invalid
+        }
+      } else {
+        false
+      }))
+    }
   }
 }

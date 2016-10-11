@@ -17,8 +17,10 @@ package io.bitsnap
 package http
 package headers
 
-import io.bitsnap.http.Header.Implicit.{Date => HeaderDate}
+import io.bitsnap.http.Header.{Date => HeaderDate}
 import io.bitsnap.util._
+
+import scala.util.{Failure, Success, Try}
 
 final class SetCookie(val cookieName: String,
                       val cookieValue: String,
@@ -82,64 +84,75 @@ object SetCookie {
 
   object Invalid extends Header.Invalid
 
-  def apply(string: String) = {
-    if (string.isEmpty) { throw Invalid }
+  def apply(string: String): Try[SetCookie] = {
+    if (string.trim.isEmpty) {
+      Failure(Invalid)
+    } else {
+      var name                        = ""
+      var value                       = ""
+      var path: Option[String]        = None
+      var domain: Option[String]      = None
+      var expires: Option[HeaderDate] = None
+      var maxAge: Option[Int]         = None
+      var secure                      = false
+      var httpOnly                    = false
 
-    var name                        = ""
-    var value                       = ""
-    var path: Option[String]        = None
-    var domain: Option[String]      = None
-    var expires: Option[HeaderDate] = None
-    var maxAge: Option[Int]         = None
-    var secure                      = false
-    var httpOnly                    = false
+      var error = false
 
-    string.split(";").map { _.trim }.foreach { e =>
-      if (name.isEmpty) {
-        val (n, v) = e.splitNameValue.getOrElse { throw Invalid }
-        name = n
-        value = v
-      } else {
-        try {
-          val lw = e.toLowerCase
-          e match {
-            case _ if lw.startsWith("path=") =>
-              path = Some(
-                e.substringAfter('=')
-                  .getOrElse {
-                    throw Invalid
-                  }
-                  .stripQuotes)
+      try {
+        string.split(";").map { _.trim }.foreach { e =>
+          if (name.isEmpty) {
+            val (n, v) = e.splitNameValue.getOrElse { throw Invalid }
+            name = n
+            value = v
+          } else {
+            val lw = e.toLowerCase
+            e match {
+              case _ if lw.startsWith("path=") =>
+                path = Some(
+                  e.substringAfter('=')
+                    .getOrElse {
+                      throw Invalid
+                    }
+                    .stripQuotes)
 
-            case _ if lw.startsWith("domain=") =>
-              domain = Some(
-                e.substringAfter('=')
-                  .getOrElse {
-                    throw Invalid
-                  }
-                  .stripQuotes)
+              case _ if lw.startsWith("domain=") =>
+                domain = Some(
+                  e.substringAfter('=')
+                    .getOrElse {
+                      throw Invalid
+                    }
+                    .stripQuotes)
 
-            case _ if lw.startsWith("expires=") =>
-              val HeaderDate(d) = e.substringAfter('=').getOrElse { throw Invalid }
-              expires = Some(d)
+              case _ if lw.startsWith("expires=") =>
+                HeaderDate(e.substringAfter('=').getOrElse { throw Invalid }) match {
+                  case Success(d) => expires = Some(d)
+                  case _          => throw Invalid
+                }
 
-            case _ if lw.startsWith("max-age=") =>
-              maxAge = Some(
-                e.substringAfter('=')
-                  .getOrElse {
-                    throw Invalid
-                  }
-                  .toInt)
+              case _ if lw.startsWith("max-age=") =>
+                maxAge = Some(
+                  e.substringAfter('=')
+                    .getOrElse {
+                      throw Invalid
+                    }
+                    .toInt)
 
-            case _ if lw.startsWith("secure")   => secure = true
-            case _ if lw.startsWith("httponly") => httpOnly = true
+              case _ if lw.startsWith("secure")   => secure = true
+              case _ if lw.startsWith("httponly") => httpOnly = true
+            }
           }
-        } catch {
-          case _: NumberFormatException => throw Invalid
         }
+      } catch {
+        case _: NumberFormatException => error = true
+        case Invalid                  => error = true
+      }
+
+      if (!error) {
+        Success(new SetCookie(name, value, path, domain, expires, maxAge, secure, httpOnly))
+      } else {
+        Failure(Invalid)
       }
     }
-
-    new SetCookie(name, value, path, domain, expires, maxAge, secure, httpOnly)
   }
 }

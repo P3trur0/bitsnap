@@ -16,6 +16,8 @@
 package io.bitsnap.http
 package headers
 
+import scala.util.{Failure, Success, Try}
+
 final class Expect(val status: Status) extends Header {
 
   override val name: String = Expect.name
@@ -38,18 +40,19 @@ object Expect {
 
   object Invalid extends Header.Invalid
 
-  def apply(string: String) = {
-    if (string.isEmpty) { throw Invalid }
-
-    val chunks = string.split("-")
-    if (chunks.size != 2) {
-      throw Invalid
-    }
-
-    try {
-      new Expect(Status(chunks.head.toInt))
-    } catch {
-      case _: NumberFormatException => throw Invalid
+  def apply(string: String): Try[Expect] = {
+    if (string.isEmpty) {
+      Failure(Invalid)
+    } else {
+      val chunks = string.split("-")
+      if (chunks.size != 2) {
+        Failure(Invalid)
+      } else {
+        Status(chunks.head.toInt).map { new Expect(_) } match {
+          case Failure(e) if e.isInstanceOf[NumberFormatException] => Failure(Invalid)
+          case Success(e)                                          => Success(e)
+        }
+      }
     }
   }
 }

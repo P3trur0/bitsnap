@@ -16,6 +16,8 @@
 package io.bitsnap.http
 package headers
 
+import scala.util.{Failure, Success, Try}
+
 final class Allow(val methods: Seq[Method]) extends Header {
 
   override val name = Allow.name
@@ -28,7 +30,6 @@ final class Allow(val methods: Seq[Method]) extends Header {
   }
 
   override def hashCode = (0 /: methods.map { _.hashCode }) { headers.hashCodePrime + _ + _ }
-
 }
 
 object Allow {
@@ -36,14 +37,16 @@ object Allow {
 
   object Invalid extends Header.Invalid
 
-  def apply(string: String) = {
-    if (string.isEmpty) { throw Invalid }
-
-    val Method(methods @ _ *) = string
-    if (methods.isEmpty) {
-      throw Invalid
+  def apply(string: String): Try[Allow] = {
+    if (string.trim.isEmpty) {
+      Failure(Invalid)
     } else {
-      new Allow(methods)
+      val Method(methods @ _ *) = string
+
+      methods.isEmpty match {
+        case true => Failure(Invalid)
+        case _    => Success(new Allow(methods))
+      }
     }
   }
 }

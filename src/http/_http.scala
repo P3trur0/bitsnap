@@ -19,6 +19,7 @@ import io.bitsnap.http.headers._
 import io.bitsnap.util.RichSeq
 
 import scala.language.implicitConversions
+import scala.util.{Failure, Success}
 
 package object http {
 
@@ -197,17 +198,15 @@ package object http {
     def unapply(string: String): Seq[Header] = unapply(string.split("\r\n"))
 
     def unapply(strings: Seq[String]): Seq[Header] = {
-      strings map { s =>
+      strings.map { s =>
         val colonIdx = s.indexOf(": ")
-
         if (colonIdx > 0) {
           val (n, v) = (s.substring(0, colonIdx), s.substring(colonIdx))
           val apply  = headers.known.get(n)
           if (apply.isDefined) {
-            try {
-              Some(apply.get(v))
-            } catch {
-              case e: Header.Invalid => None
+            apply.get(v) match {
+              case Success(header) => Some(header)
+              case Failure(e)      => None
             }
           } else {
             Some(new Header {
@@ -215,8 +214,10 @@ package object http {
               override val value: String = v
             })
           }
-        } else { None }
-      } filter { _.isDefined } map { _.get }
+        } else {
+          None
+        }
+      }.filter { _.isDefined }.map { _.get }
     }
 
     private[http] object Implicit {

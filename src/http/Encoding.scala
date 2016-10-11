@@ -16,6 +16,8 @@
 package io.bitsnap
 package http
 
+import scala.util.{Failure, Success, Try}
+
 private[http] sealed class Encoding(val name: String) {
   override def toString = name
 
@@ -64,13 +66,16 @@ object Encoding {
 
   object Unknown extends Header.Invalid
 
-  def apply(name: String) =
-    known.find { _.name == name }.getOrElse {
-      throw Unknown
-    }
+  def apply(name: String): Try[Encoding] =
+    known.find { _.name == name }.map { Success(_) }.getOrElse { Failure(Unknown) }
 
   def unapplySeq(string: String): Option[Seq[Encoding]] =
-    Some(string.split(",").map { e =>
-      apply(e.trim)
-    })
+    Some(
+      string
+        .split(",")
+        .map { e =>
+          apply(e.trim)
+        }
+        .filter { _.isSuccess }
+        .map { _.get })
 }

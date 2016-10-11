@@ -19,6 +19,8 @@ package headers
 
 import io.bitsnap.util._
 
+import scala.util.{Failure, Success, Try}
+
 final class Forwarded(val directives: Seq[Forwarded.Directive]) extends Header {
   override val name: String = Forwarded.name
 
@@ -69,21 +71,27 @@ object Forwarded {
 
     object Invalid extends Header.Invalid
 
-    def apply(string: String) = {
+    def apply(string: String): Try[Directive] = {
       val (name, value) = string.splitNameValue.getOrElse { throw Invalid }
       name.toLowerCase match {
-        case "for"   => For(value.stripQuotes)
-        case "host"  => Host(value.stripQuotes)
-        case "by"    => By(value.stripQuotes)
-        case "proto" => Protocol(value)
-        case _       => throw Invalid
+        case "for"   => Success(For(value.stripQuotes))
+        case "host"  => Success(Host(value.stripQuotes))
+        case "by"    => Success(By(value.stripQuotes))
+        case "proto" => Success(Protocol(value))
+        case _       => Failure(Invalid)
       }
     }
   }
 
-  def apply(string: String) = {
-    if (string.isEmpty) { throw Invalid }
-
-    new Forwarded(string.split(";").map { _.trim }.map { Directive(_) })
+  def apply(string: String): Try[Forwarded] = {
+    if (string.trim.isEmpty) {
+      Failure(Invalid)
+    } else {
+      val directives = string.split(";").map { _.trim }.map { Directive(_) }.filter { _.isSuccess }.map { _.get }
+      directives.isEmpty match {
+        case true => Failure(Invalid)
+        case _    => Success(new Forwarded(directives))
+      }
+    }
   }
 }

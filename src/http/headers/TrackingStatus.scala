@@ -16,6 +16,8 @@
 package io.bitsnap.http
 package headers
 
+import scala.util.{Failure, Success, Try}
+
 final class TrackingStatus(val x: TrackingStatus.Value) extends Header {
 
   override val name = TrackingStatus.name
@@ -65,22 +67,21 @@ object TrackingStatus {
 
   object Updated extends Value('U')
 
-  def apply(string: String) =
-    try {
-      if (string.isEmpty) { throw Invalid }
-
-      new TrackingStatus(string.charAt(0) match {
-        case UnderConstruction.flag       => UnderConstruction
-        case Dynamic.flag                 => Dynamic
-        case Gateway.flag                 => Gateway
-        case NotTracking.flag             => NotTracking
-        case TrackingWithConsent.flag     => TrackingWithConsent
-        case TrackingOnlyIfConsented.flag => TrackingOnlyIfConsented
-        case Disregarding.flag            => Disregarding
-        case Updated.flag                 => Updated
-      })
-    } catch {
-      case _: IndexOutOfBoundsException => throw Invalid
+  def apply(string: String): Try[TrackingStatus] = {
+    if (string.isEmpty) {
+      Failure(Invalid)
+    } else {
+      (string.head match {
+        case UnderConstruction.flag       => Success(UnderConstruction)
+        case Dynamic.flag                 => Success(Dynamic)
+        case Gateway.flag                 => Success(Gateway)
+        case NotTracking.flag             => Success(NotTracking)
+        case TrackingWithConsent.flag     => Success(TrackingWithConsent)
+        case TrackingOnlyIfConsented.flag => Success(TrackingOnlyIfConsented)
+        case Disregarding.flag            => Success(Disregarding)
+        case Updated.flag                 => Success(Updated)
+        case _                            => Failure(Invalid)
+      }).map { new TrackingStatus(_) }
     }
-
+  }
 }

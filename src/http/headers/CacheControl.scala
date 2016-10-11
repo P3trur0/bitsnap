@@ -16,6 +16,8 @@
 package io.bitsnap.http
 package headers
 
+import scala.util.{Failure, Success, Try}
+
 final class CacheControl(val directives: Seq[CacheControl.Directive]) extends Header {
 
   if (directives.isEmpty) {
@@ -89,33 +91,33 @@ object CacheControl {
 
     object ProxyRevalidate extends PlainDirective("proxy-revalidate")
 
-    def apply(string: String) = {
+    def apply(string: String): Try[Directive] = {
       string match {
-        case NoCache.name                         => NoCache
-        case _ if string.startsWith("no-cache=")  => NoCache(string.stripPrefix("no-cache="))
-        case Private.name                         => Private
-        case _ if string.startsWith("private=")   => Private(string.stripPrefix("private="))
-        case _ if string.startsWith("max-age=")   => MaxAge(string.stripPrefix("max-age=").toInt)
-        case _ if string.startsWith("s-maxage=")  => SMaxAge(string.stripPrefix("s-maxage=").toInt)
-        case _ if string.startsWith("max-stale=") => MaxStale(string.stripPrefix("max-stale=").toInt)
-        case _ if string.startsWith("min-fresh=") => MinFresh(string.stripPrefix("min-fresh=").toInt)
+        case NoCache.name                         => Success(NoCache)
+        case _ if string.startsWith("no-cache=")  => Success(NoCache(string.stripPrefix("no-cache=")))
+        case Private.name                         => Success(Private)
+        case _ if string.startsWith("private=")   => Success(Private(string.stripPrefix("private=")))
+        case _ if string.startsWith("max-age=")   => Success(MaxAge(string.stripPrefix("max-age=").toInt))
+        case _ if string.startsWith("s-maxage=")  => Success(SMaxAge(string.stripPrefix("s-maxage=").toInt))
+        case _ if string.startsWith("max-stale=") => Success(MaxStale(string.stripPrefix("max-stale=").toInt))
+        case _ if string.startsWith("min-fresh=") => Success(MinFresh(string.stripPrefix("min-fresh=").toInt))
 
-        case Public.name          => Public
-        case NoStore.name         => NoStore
-        case NoTransform.name     => NoTransform
-        case OnlyIfCached.name    => OnlyIfCached
-        case MustRevalidate.name  => MustRevalidate
-        case ProxyRevalidate.name => ProxyRevalidate
+        case Public.name          => Success(Public)
+        case NoStore.name         => Success(NoStore)
+        case NoTransform.name     => Success(NoTransform)
+        case OnlyIfCached.name    => Success(OnlyIfCached)
+        case MustRevalidate.name  => Success(MustRevalidate)
+        case ProxyRevalidate.name => Success(ProxyRevalidate)
 
         case _ =>
           val eqIdx = string.indexOf('=')
           if (eqIdx > 0) {
             val (n, v) = (string.substring(0, eqIdx), string.substring(eqIdx + 1))
-            new Directive(n) {
+            Success(new Directive(n) {
               override lazy val value = v
-            }
+            })
           } else {
-            throw Invalid
+            Failure(Invalid)
           }
       }
     }
@@ -127,14 +129,16 @@ object CacheControl {
 
   object Invalid extends Header.Invalid
 
-  def apply(string: String) = {
-    if (string.isEmpty) { throw Invalid }
+  def apply(string: String): Try[CacheControl] = {
+    if (string.isEmpty) {
+      Failure(Invalid)
+    } else {
 
-    val directives = string split ',' map { _.trim } map { Directive(_) }
-    if (directives.isEmpty) {
-      throw Invalid
+      val directives = string.split(',').map { _.trim }.map { Directive(_) }.filter { _.isSuccess }.map { _.get }
+      directives.isEmpty match {
+        case true => Failure(Invalid)
+        case _    => Success(new CacheControl(directives))
+      }
     }
-
-    new CacheControl(directives)
   }
 }

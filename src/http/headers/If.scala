@@ -16,7 +16,9 @@
 package io.bitsnap.http
 package headers
 
-import io.bitsnap.http.Header.Implicit.{Date => HeaderDate}
+import io.bitsnap.http.Header.{Date => HeaderDate}
+
+import scala.util.{Failure, Success, Try}
 
 final class IfMatch(override val isWeak: Boolean, override val tag: String) extends WeakHeader(isWeak, tag) {
 
@@ -42,11 +44,17 @@ object IfMatch {
 
   object Invalid extends Header.Invalid
 
-  def apply(string: String) = {
-    if (string.isEmpty) { throw Invalid }
-
-    val (isWeak, tag) = WeakHeader(string)
-    new IfMatch(isWeak, tag)
+  def apply(string: String): Try[IfMatch] = {
+    val trimmed = string.trim
+    if (trimmed.isEmpty) {
+      Failure(Invalid)
+    } else {
+      val (isWeak, tag) = WeakHeader(trimmed)
+      tag.isEmpty match {
+        case true => Failure(Invalid)
+        case _    => Success(new IfMatch(isWeak, tag))
+      }
+    }
   }
 }
 
@@ -70,11 +78,12 @@ object IfModifiedSince {
 
   object Invalid extends Header.Invalid
 
-  def apply(string: String) = {
-    if (string.isEmpty) { throw Invalid }
-
-    val HeaderDate(date) = string
-    new IfModifiedSince(date)
+  def apply(string: String): Try[IfModifiedSince] = {
+    if (string.trim.isEmpty) {
+      Failure(Invalid)
+    } else {
+      HeaderDate(string).map { new IfModifiedSince(_) }
+    }
   }
 }
 
@@ -102,11 +111,17 @@ object IfNoneMatch {
 
   object Invalid extends Header.Invalid
 
-  def apply(string: String) = {
-    if (string.isEmpty) { throw Invalid }
-
-    val (isWeak, tag) = WeakHeader(string)
-    new IfNoneMatch(isWeak, tag)
+  def apply(string: String): Try[IfNoneMatch] = {
+    val trimmed = string.trim
+    if (trimmed.isEmpty) {
+      Failure(Invalid)
+    } else {
+      val (isWeak, tag) = WeakHeader(trimmed)
+      tag.isEmpty match {
+        case true => Failure(Invalid)
+        case _    => Success(new IfNoneMatch(isWeak, tag))
+      }
+    }
   }
 }
 
@@ -138,16 +153,22 @@ object IfRange {
 
   object Invalid extends Header.Invalid
 
-  def apply(string: String) = {
-    if (string.isEmpty) { throw Invalid }
+  def apply(string: String): Try[IfRange] = {
 
-    try {
-      val HeaderDate(date) = string
-      new IfRangeDate(date)
-    } catch {
-      case HeaderDate.Invalid =>
-        val (isWeak, tag) = WeakHeader(string)
-        new IfRangeTag(isWeak, tag)
+    if (string.trim.isEmpty) {
+      Failure(Invalid)
+    } else {
+      HeaderDate(string) match {
+        case Success(d) => Success(new IfRangeDate(d))
+        case Failure(_) => {
+          val (isWeak, tag) = WeakHeader(string)
+          if (tag.isEmpty) {
+            Failure(Invalid)
+          } else {
+            Success(new IfRangeTag(isWeak, tag))
+          }
+        }
+      }
     }
   }
 }
@@ -203,9 +224,10 @@ object IfUnmodifiedSince {
   object Invalid extends Header.Invalid
 
   def apply(string: String) = {
-    if (string.isEmpty) { throw Invalid }
-
-    val HeaderDate(date) = string
-    new IfUnmodifiedSince(date)
+    if (string.isEmpty) {
+      Failure(Invalid)
+    } else {
+      HeaderDate(string).map { new IfUnmodifiedSince(_) }
+    }
   }
 }

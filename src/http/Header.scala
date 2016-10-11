@@ -23,6 +23,7 @@ import java.util.{Locale, Date => JavaDate}
 import io.bitsnap.util._
 
 import scala.language.implicitConversions
+import scala.util.{Failure, Success, Try}
 
 trait Header extends Ordered[String] {
   val name: String
@@ -54,7 +55,7 @@ object WeakHeader {
   }
 }
 
-abstract class DateHeader(val date: Header.Implicit.Date) extends Header {
+abstract class DateHeader(val date: Header.Date) extends Header {
   override lazy val value: String = date.toString
 
   override def equals(that: Any) = that match {
@@ -86,150 +87,129 @@ object Header {
 
     trait Transformations { this: Parameter =>
 
-      private[http] final def toQualityParameter[T](supplementary: (String) => T, invalid: Header.Invalid) = {
+      private[http] final def toQualityParameter[T](supplementary: (String) => T,
+                                                    invalid: Header.Invalid): Try[(T, Int)] = {
         try {
           val q = attributes.getOrElse("q", "1.0").toFloat * 10
-          (supplementary(name), q.toInt)
+          Success(supplementary(name) -> q.toInt)
         } catch {
-          case e: NumberFormatException => throw invalid
+          case e: NumberFormatException => Failure(invalid)
         }
       }
     }
   }
 
-  object Implicit {
-    private[http] implicit def toQualityParameters[T](from: Seq[(T, Int)]): QualityParameters[T] =
+  class QualityParameters[T](val from: Seq[(T, Int)]) extends AnyVal {
+
+    override def toString =
+      new Parameters(from.map { x =>
+        new Parameter(x._1.toString, if (x._2 > 0 && x._2 < 10) {
+          Map("q" -> s"0.${x._2}")
+        } else { Map() })
+      }).toString
+  }
+
+  class Locales(val from: Seq[Locale]) extends AnyVal {
+    override def toString = from.mkString("", ", ", "")
+  }
+
+  object Locales {
+    def unapplySeq(string: String): Option[Seq[Locale]] = {
+      val locales = string.split(",") map { s =>
+        if (s contains '_') {
+          val e                   = s split "_"
+          val (country, language) = (e(0).trim, e(1).trim)
+          if (country.isEmpty || language.isEmpty) {
+            None
+          } else { Some(new Locale(country, language)) }
+        } else {
+          val language = string stripMargin ' '
+          if (language.isEmpty) {
+            None
+          } else { Some(new Locale(language)) }
+        }
+      } filter { _.isDefined } map { _.get }
+
+      if (locales.isEmpty) {
+        None
+      } else { Some(locales) }
+    }
+  }
+
+  class Parameters(val from: Seq[Parameter]) extends AnyVal {
+    override def toString = from.mkString("", ", ", "")
+  }
+
+  object Parameters {
+
+    def unapplySeq(string: String): Option[Seq[Parameter]] = {
+      val parameters = string
+        .split(',')
+        .map { e =>
+          val attrChunks = e.split(';')
+          val name       = attrChunks.head.trim
+          if (name.isEmpty) {
+            None
+          } else {
+            Some(new Parameter(name, attrChunks.tail.map {
+              _.splitNameValue
+            }.filter { _.isDefined }.map { _.get }.toMap))
+          }
+        }
+        .filter { _.isDefined }
+        .map { _.get }
+
+      if (parameters.isEmpty) {
+        None
+      } else { Some(parameters) }
+    }
+  }
+
+  class Date(val from: JavaDate) extends AnyVal {
+    override def toString = Date.format(from)
+  }
+
+  object Date {
+
+    object Invalid extends Header.Invalid
+
+    private[http] def dateFormatter = DateTimeFormatter.RFC_1123_DATE_TIME.withZone(ZoneId of "GMT")
+
+    private[http] def format(from: JavaDate) = Date.dateFormatter.format(from.toInstant.atZone(ZoneId of "GMT"))
+
+    def unapply(string: String) =
+      try {
+        Some(JavaDate.from(ZonedDateTime.parse(string, dateFormatter).toInstant))
+      } catch {
+        case e: IllegalArgumentException => None
+        case e: DateTimeParseException   => None
+      }
+
+    def apply(string: String): Try[Date] = unapply(string) match {
+      case Some(date) => Success(new Date(date))
+      case None       => Failure(Invalid)
+    }
+  }
+
+  private[http] object Implicit {
+    implicit def toQualityParameters[T](from: Seq[(T, Int)]): QualityParameters[T] =
       new QualityParameters[T](from)
 
-    private[http] implicit def fromQualityParameters[T](parameters: QualityParameters[T]): Seq[(T, Int)] =
+    implicit def fromQualityParameters[T](parameters: QualityParameters[T]): Seq[(T, Int)] =
       parameters.from
 
-    class QualityParameters[T](val from: Seq[(T, Int)]) {
+    implicit def toLocales(from: Seq[Locale]): Locales = new Locales(from)
 
-      override def toString =
-        new Implicit.Parameters(from.map { x =>
-          new Parameter(x._1.toString, if (x._2 > 0 && x._2 < 10) {
-            Map("q" -> s"0.${x._2}")
-          } else { Map() })
-        }).toString
-    }
+    implicit def fromLocales(locales: Locales): Seq[Locale] = locales.from
 
-    private[http] implicit def toLocales(from: Seq[Locale]): Locales = new Locales(from)
+    implicit def toParameters(from: Seq[Parameter]): Parameters = new Parameters(from)
 
-    private[http] implicit def fromLocales(locales: Locales): Seq[Locale] = locales.from
+    implicit def fromParameters(parameters: Parameters): Seq[Parameter] = parameters.from
 
-    class Locales(val from: Seq[Locale]) {
-      override def toString = from.mkString("", ", ", "")
+    implicit def toDate(from: JavaDate): Date = new Date(from)
 
-      override def equals(that: Any) = that match {
-        case that: Locales => this.from == that.from
-        case _             => false
-      }
-
-      override def hashCode = (0 /: from.map { _.hashCode }) { http.hashCodePrime * _ + _ }
-    }
-
-    object Locales {
-      def unapplySeq(string: String): Option[Seq[Locale]] = {
-        val locales = string.split(",") map { s =>
-          if (s contains '_') {
-            val e                   = s split "_"
-            val (country, language) = (e(0).trim, e(1).trim)
-            if (country.isEmpty || language.isEmpty) {
-              None
-            } else { Some(new Locale(country, language)) }
-          } else {
-            val language = string stripMargin ' '
-            if (language.isEmpty) {
-              None
-            } else { Some(new Locale(language)) }
-          }
-        } filter { _.isDefined } map { _.get }
-
-        if (locales.isEmpty) {
-          None
-        } else { Some(locales) }
-      }
-    }
-
-    private[http] implicit def toParameters(from: Seq[Parameter]): Parameters = new Parameters(from)
-
-    private[http] implicit def fromParameters(parameters: Parameters): Seq[Parameter] = parameters.from
-
-    class Parameters(val from: Seq[Parameter]) {
-      override def toString = from.mkString("", ", ", "")
-
-      override def equals(that: Any) = that match {
-        case that: Parameters => this.from == that.from
-        case _                => false
-      }
-
-      override def hashCode = (0 /: from.map { _.hashCode }) { http.hashCodePrime * _ + _ }
-    }
-
-    object Parameters {
-
-      def unapplySeq(string: String): Option[Seq[Parameter]] = {
-        val parameters = string
-          .split(',')
-          .map { e =>
-            val attrChunks = e.split(';')
-            val name       = attrChunks.head.trim
-            if (name.isEmpty) {
-              None
-            } else {
-              Some(new Parameter(name, attrChunks.tail.map { e =>
-                val k     = e split '='
-                val name  = k.headOption.getOrElse("").trim
-                val value = k.lastOption.getOrElse("").trim
-                if (name.isEmpty || value.isEmpty) {
-                  None
-                } else { Some(name -> value) }
-              }.filter { _.isDefined }.map { _.get }.toMap))
-            }
-          }
-          .filter { _.isDefined }
-          .map { _.get }
-
-        if (parameters.isEmpty) {
-          None
-        } else { Some(parameters) }
-      }
-    }
-
-    private[http] implicit def toDate(from: JavaDate): Date = new Date(from)
-
-    private[http] implicit def fromDate(date: Date): JavaDate = date.from
-
-    class Date(val from: JavaDate) {
-      override def toString = Date.format(from)
-
-      override def equals(that: Any) = that match {
-        case that: Date => this.from == that.from
-        case _          => false
-      }
-
-      override def hashCode = from.hashCode
-    }
-
-    object Date {
-
-      object Invalid extends Header.Invalid
-
-      private[http] def dateFormatter = DateTimeFormatter.RFC_1123_DATE_TIME.withZone(ZoneId of "GMT")
-
-      private[http] def format(from: JavaDate) = Date.dateFormatter.format(from.toInstant.atZone(ZoneId of "GMT"))
-
-      private[http] def unapply(string: String) =
-        try {
-          Some(JavaDate.from(ZonedDateTime.parse(string, dateFormatter).toInstant))
-        } catch {
-          case e: IllegalArgumentException => throw Invalid
-          case e: DateTimeParseException   => throw Invalid
-        }
-    }
+    implicit def fromDate(date: Date): JavaDate = date.from
   }
 
   private[http] class Invalid extends Http.Invalid
-
 }

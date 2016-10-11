@@ -16,7 +16,9 @@
 package io.bitsnap.http
 package headers
 
-import io.bitsnap.http.Header.Implicit._
+import io.bitsnap.http.Header._
+
+import scala.util.{Failure, Success, Try}
 
 final class Link(val rel: Parameters) extends Header {
   override val name = Link.name
@@ -71,23 +73,23 @@ object Link {
 
     object Unknown extends Header.Invalid
 
-    def apply(name: String) = name match {
-      case Alternate.name   => Alternate
-      case Author.name      => Author
-      case DnsPrefetch.name => DnsPrefetch
-      case Help.name        => Help
-      case Icon.name        => Icon
-      case License.name     => License
-      case Next.name        => Next
-      case PingBack.name    => PingBack
-      case PreConnect.name  => PreConnect
-      case PreFetch.name    => PreFetch
-      case PreLoad.name     => PreLoad
-      case PreRender.name   => PreRender
-      case Prev.name        => Prev
-      case Search.name      => Search
-      case Stylesheet.name  => Stylesheet
-      case _                => throw Unknown
+    def apply(name: String): Try[Relationship] = name match {
+      case Alternate.name   => Success(Alternate)
+      case Author.name      => Success(Author)
+      case DnsPrefetch.name => Success(DnsPrefetch)
+      case Help.name        => Success(Help)
+      case Icon.name        => Success(Icon)
+      case License.name     => Success(License)
+      case Next.name        => Success(Next)
+      case PingBack.name    => Success(PingBack)
+      case PreConnect.name  => Success(PreConnect)
+      case PreFetch.name    => Success(PreFetch)
+      case PreLoad.name     => Success(PreLoad)
+      case PreRender.name   => Success(PreRender)
+      case Prev.name        => Success(Prev)
+      case Search.name      => Success(Search)
+      case Stylesheet.name  => Success(Stylesheet)
+      case _                => Failure(Unknown)
     }
   }
 
@@ -97,22 +99,22 @@ object Link {
 
   object Invalid extends Header.Invalid
 
-  def apply(string: String) = {
-
+  def apply(string: String): Try[Link] = {
     if (string.trim.isEmpty) {
-      throw Invalid
-    }
-
-    val Parameters(parameters @ _ *) = string
-
-    val rel = parameters.map { e =>
-      new Header.Parameter(e.name, Map("rel" -> e.attributes.getOrElse("rel", { throw Invalid })))
-    }
-
-    if (rel.isEmpty) {
-      throw Invalid
+      Failure(Invalid)
     } else {
-      new Link(rel)
+      val Parameters(parameters @ _ *) = string
+
+      val rel = parameters.map { e =>
+        (e.name, e.attributes.get("rel"))
+      }.filter { _._2.isDefined }.map { e =>
+        new Parameter(e._1, Map("rel" -> e._2.get))
+      }
+
+      rel.isEmpty match {
+        case true => Failure(Invalid)
+        case _    => Success(new Link(new Parameters(rel)))
+      }
     }
   }
 }

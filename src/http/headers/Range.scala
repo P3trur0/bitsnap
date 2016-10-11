@@ -18,6 +18,8 @@ package headers
 
 import io.bitsnap.http.{Range => HttpRange}
 
+import scala.util.{Failure, Try}
+
 final class Range(val range: HttpRange) extends Header {
 
   override val name = Range.name
@@ -39,9 +41,11 @@ object Range {
 
   object Invalid extends Header.Invalid
 
-  def apply(string: String) = {
-    if (string.isEmpty) { throw Invalid }
-
-    new Range(HttpRange(string))
+  def apply(string: String): Try[Range] = {
+    if (string.trim.isEmpty) {
+      Failure(Invalid)
+    } else {
+      HttpRange(string).map { new Range(_) }
+    }
   }
 }

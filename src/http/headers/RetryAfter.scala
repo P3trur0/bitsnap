@@ -16,7 +16,9 @@
 package io.bitsnap.http
 package headers
 
-import io.bitsnap.http.Header.Implicit.{Date => HeaderDate}
+import io.bitsnap.http.Header.{Date => HeaderDate}
+
+import scala.util.{Failure, Success, Try}
 
 trait RetryAfter extends Header {
 
@@ -77,19 +79,20 @@ object RetryAfter {
 
   object Invalid extends Header.Invalid
 
-  def apply(string: String) = {
-    if (string.isEmpty) { throw Invalid }
-
-    try {
-      val HeaderDate(date) = string
-      new RetryAfterDate(date)
-    } catch {
-      case HeaderDate.Invalid =>
-        try {
-          new RetryAfterSeconds(string.toInt)
-        } catch {
-          case _: NumberFormatException => throw Invalid
-        }
+  def apply(string: String): Try[RetryAfter] = {
+    if (string.trim.isEmpty) {
+      Failure(Invalid)
+    } else {
+      HeaderDate(string).map {
+        new RetryAfterDate(_)
+      } match {
+        case Failure(_) =>
+          Try(new RetryAfterSeconds(string.toInt)) match {
+            case Failure(e) if e.isInstanceOf[NumberFormatException] => Failure(Invalid)
+            case e                                                   => e
+          }
+        case e => e
+      }
     }
   }
 }

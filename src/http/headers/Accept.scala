@@ -18,8 +18,11 @@ package headers
 
 import java.util.Locale
 
-import io.bitsnap.http.Header.Implicit.{Date => HeaderDate, _}
+import Header.{Date => HeaderDate, _}
 import io.bitsnap.http.{Range => HttpRange}
+import Header.Implicit._
+
+import scala.util.{Failure, Success, Try}
 
 class Accept(val types: QualityParameters[MimeType]) extends Header {
 
@@ -51,19 +54,24 @@ object Accept {
 
   object Invalid extends Header.Invalid
 
-  def apply(string: String) = {
-    if (string.isEmpty) { throw Invalid }
-
-    val Parameters(parameters @ _ *) = string
-
-    val qualityParameters = parameters.map {
-      _.toQualityParameter(MimeType(_), Invalid)
-    }
-
-    if (qualityParameters.isEmpty) {
-      throw Invalid
+  def apply(string: String): Try[Accept] = {
+    if (string.trim.isEmpty) {
+      Failure(Invalid)
     } else {
-      new Accept(qualityParameters)
+      val Parameters(parameters @ _ *) = string
+
+      val qualityParameters = parameters.map {
+        _.toQualityParameter(MimeType(_), Invalid)
+      }.filter { e =>
+        e.isSuccess && e.get._1.isSuccess
+      }.map { e =>
+        (e.get._1.get, e.get._2)
+      }
+
+      qualityParameters.isEmpty match {
+        case true => Failure(Invalid)
+        case _    => Success(new Accept(qualityParameters))
+      }
     }
   }
 }
@@ -97,19 +105,24 @@ object AcceptCharset {
 
   object Invalid extends Header.Invalid
 
-  def apply(string: String) = {
-    if (string.isEmpty) { throw Invalid }
-
-    val Parameters(parameters @ _ *) = string
-
-    val qualityParameters = parameters.map {
-      _.toQualityParameter(Charset(_), Invalid)
-    }
-
-    if (qualityParameters.isEmpty) {
-      throw Invalid
+  def apply(string: String): Try[AcceptCharset] = {
+    if (string.trim.isEmpty) {
+      Failure(Invalid)
     } else {
-      new AcceptCharset(qualityParameters)
+      val Parameters(parameters @ _ *) = string
+
+      val qualityParameters = parameters.map {
+        _.toQualityParameter(Charset(_), Invalid)
+      }.filter { e =>
+        e.isSuccess && e.get._1.isSuccess
+      }.map { e =>
+        (e.get._1.get, e.get._2)
+      }
+
+      qualityParameters.isEmpty match {
+        case true => Failure(Invalid)
+        case _    => Success(new AcceptCharset(qualityParameters))
+      }
     }
   }
 }
@@ -133,11 +146,12 @@ object AcceptDatetime {
 
   object Invalid extends Header.Invalid
 
-  def apply(string: String) = {
-    if (string.isEmpty) { throw Invalid }
-
-    val HeaderDate(date) = string
-    new AcceptDatetime(date)
+  def apply(string: String): Try[AcceptDatetime] = {
+    if (string.trim.isEmpty) {
+      Failure(Invalid)
+    } else {
+      HeaderDate(string).map { new AcceptDatetime(_) }
+    }
   }
 }
 
@@ -171,19 +185,25 @@ object AcceptEncoding {
 
   object Invalid extends Header.Invalid
 
-  def apply(string: String) = {
-    if (string.isEmpty) { throw Invalid }
-
-    val Parameters(parameters @ _ *) = string
-
-    val qualityParameters = parameters.map {
-      _.toQualityParameter(Encoding(_), Invalid)
-    }
-
-    if (qualityParameters.isEmpty) {
-      throw Invalid
+  def apply(string: String): Try[AcceptEncoding] = {
+    if (string.trim.isEmpty) {
+      Failure(Invalid)
     } else {
-      new AcceptEncoding(qualityParameters)
+
+      val Parameters(parameters @ _ *) = string
+
+      val qualityParameters = parameters.map {
+        _.toQualityParameter(Encoding(_), Invalid)
+      }.filter { e =>
+        e.isSuccess && e.get._1.isSuccess
+      }.map { e =>
+        (e.get._1.get, e.get._2)
+      }
+
+      qualityParameters.isEmpty match {
+        case true => Failure(Invalid)
+        case _    => Success(new AcceptEncoding(qualityParameters))
+      }
     }
   }
 }
@@ -218,21 +238,22 @@ object AcceptLanguage {
 
   object Invalid extends Header.Invalid
 
-  def apply(string: String) = {
-    if (string.isEmpty) { throw Invalid }
-
-    val Parameters(parameters @ _ *) = string
-
-    val qualityParameters = parameters.map { p =>
-      p.toQualityParameter({ e =>
-        val Locales(locale) = e; locale
-      }, Invalid)
-    }
-
-    if (qualityParameters.isEmpty) {
-      throw Invalid
+  def apply(string: String): Try[AcceptLanguage] = {
+    if (string.trim.isEmpty) {
+      Failure(Invalid)
     } else {
-      new AcceptLanguage(qualityParameters)
+      val Parameters(parameters @ _ *) = string
+
+      val qualityParameters = parameters.map { p =>
+        p.toQualityParameter({ e =>
+          val Locales(locale) = e; locale
+        }, Invalid)
+      }.filter { _.isSuccess }.map { _.get }
+
+      qualityParameters.isEmpty match {
+        case true => Failure(Invalid)
+        case _    => Success(new AcceptLanguage(qualityParameters))
+      }
     }
   }
 }
@@ -265,19 +286,24 @@ object AcceptPatch {
 
   object Invalid extends Header.Invalid
 
-  def apply(string: String) = {
-    if (string.isEmpty) { throw Invalid }
-
-    val Parameters(parameters @ _ *) = string
-
-    val qualityParameters = parameters.map {
-      _.toQualityParameter(MimeType(_), Invalid)
-    }
-
-    if (qualityParameters.isEmpty) {
-      throw Invalid
+  def apply(string: String): Try[AcceptPatch] = {
+    if (string.isEmpty) {
+      Failure(Invalid)
     } else {
-      new AcceptPatch(qualityParameters)
+      val Parameters(parameters @ _ *) = string
+
+      val qualityParameters = parameters.map {
+        _.toQualityParameter(MimeType(_), Invalid)
+      }.filter { e =>
+        e.isSuccess && e.get._1.isSuccess
+      }.map { e =>
+        (e.get._1.get, e.get._2)
+      }
+
+      qualityParameters.isEmpty match {
+        case true => Failure(Invalid)
+        case _    => Success(new AcceptPatch(qualityParameters))
+      }
     }
   }
 }
@@ -303,14 +329,12 @@ object AcceptRanges {
 
   object Invalid extends Header.Invalid
 
-  def apply(string: String) = {
-    if (string.isEmpty) { throw Invalid }
-
-    if (string.stripMargin(' ').isEmpty) {
-      throw Invalid
+  def apply(string: String): Try[AcceptRanges] = {
+    if (string.isEmpty || string.trim.isEmpty) {
+      Failure(Invalid)
+    } else {
+      HttpRange.Unit(string).map { new AcceptRanges(_) }
     }
-
-    new AcceptRanges(HttpRange.Unit(string))
   }
 }
 
@@ -328,14 +352,15 @@ object TransferEncodings {
 
   object Invalid extends Header.Invalid
 
-  def apply(string: String) = {
-    if (string.isEmpty) { throw Invalid }
+  def apply(string: String): Try[TransferEncodings] =
+    if (string.trim.isEmpty) {
+      Failure(Invalid)
+    } else {
+      val Encoding(encodings @ _ *) = string
 
-    val Encoding(encodings @ _ *) = string
-    if (encodings.isEmpty) {
-      throw Invalid
+      encodings.isEmpty match {
+        case true => Failure(Invalid)
+        case _    => Success(new TransferEncodings(encodings))
+      }
     }
-
-    new TransferEncodings(encodings)
-  }
 }

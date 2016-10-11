@@ -38,21 +38,39 @@ package object util {
 
   private[bitsnap] implicit class RichString(val from: String) extends AnyVal {
 
-    def substringBefore(char: Char) = {
-      val pos = from.indexOf(char)
-      if (pos <= 0) {
+    def substringBefore(pos: Int): Option[String] = {
+      if (pos > from.length) {
         None
       } else {
-        Some(from.substring(0, pos))
+        val s = from.substring(0, pos)
+        if (s.isEmpty) { None } else { Some(s) }
       }
     }
 
-    def substringAfter(char: Char) = {
+    def substringBefore(char: Char): Option[String] = {
       val pos = from.indexOf(char)
       if (pos <= 0) {
         None
       } else {
-        Some(from.substring(pos + 1))
+        substringBefore(pos)
+      }
+    }
+
+    def substringAfter(pos: Int): Option[String] = {
+      if (pos > from.length) {
+        None
+      } else {
+        val s = from.substring(pos + 1)
+        if (s.isEmpty) { None } else { Some(s) }
+      }
+    }
+
+    def substringAfter(char: Char): Option[String] = {
+      val pos = from.indexOf(char)
+      if (pos < 0) {
+        None
+      } else {
+        substringAfter(pos)
       }
     }
 
@@ -64,6 +82,10 @@ package object util {
         Some((from.substring(0, pos), from.substring(pos + 1)))
       }
     }
+
+    def containsAny(seq: Seq[Char]) = from.exists { seq.contains(_) }
+
+    def containsAny(seq: String) = from.exists { seq.contains(_) }
 
     def hasQuotes = from match {
       case _ if from == "\"\"" || from == "\'\'" || from == "\"" || from == "\'"                     => true

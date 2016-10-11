@@ -1,5 +1,4 @@
 # This file maps Internet media types to unique file extension(s).
-# Stolen from httpd, they don't mind
 application/andrew-inset			ez
 application/applixware				aw
 application/atom+xml				atom

@@ -16,7 +16,15 @@
 package io.bitsnap.http
 package headers
 
+import io.bitsnap.http.headers.Etag.Invalid
+
+import scala.util.{Failure, Success, Try}
+
 final class Etag(override val isWeak: Boolean, override val tag: String) extends WeakHeader(isWeak, tag) {
+  if (tag.isEmpty) {
+    throw Invalid
+  }
+
   override val name: String = IfMatch.name
 
   override def equals(that: Any) = that match {
@@ -35,10 +43,16 @@ object Etag {
 
   object Invalid extends Header.Invalid
 
-  def apply(string: String) = {
-    if (string.isEmpty) { throw Invalid }
-
-    val (isWeak, tag) = WeakHeader(string)
-    new IfMatch(isWeak, tag)
+  def apply(string: String): Try[Etag] = {
+    val trimmed = string.trim
+    if (trimmed.isEmpty) {
+      Failure(Invalid)
+    } else {
+      val (isWeak, tag) = WeakHeader(trimmed)
+      tag.isEmpty match {
+        case true => Failure(Invalid)
+        case _    => Success(new Etag(isWeak, tag))
+      }
+    }
   }
 }

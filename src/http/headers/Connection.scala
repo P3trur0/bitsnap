@@ -16,29 +16,28 @@
 package io.bitsnap.http
 package headers
 
-final class Connection(val `type`: Connection.Type) extends Header {
+import scala.util.{Failure, Success, Try}
+
+class Connection private (val `type`: String) extends Header {
   override val name: String  = Connection.name
-  override val value: String = `type`.toString
+  override val value: String = `type`
 }
 
 object Connection {
   private[http] final val name = "connection"
 
-  sealed abstract class Type(private[http] val name: String) {
-    override def toString = name
-  }
-
-  object KeepAlive extends Type("keep-alive")
-  object Close     extends Type("close")
-  object Upgrade   extends Type("Upgrade")
+  object KeepAlive extends Connection("keep-alive")
+  object Close     extends Connection("close")
+  object Upgrade   extends Connection("Upgrade")
 
   object Unknown extends Header.Invalid
 
-  def apply(string: String) =
-    new Connection(string match {
-      case KeepAlive.name => KeepAlive
-      case Close.name     => Close
-      case Upgrade.name   => Upgrade
-      case _              => throw Unknown
-    })
+  def apply(string: String): Try[Connection] = {
+    string.toLowerCase match {
+      case KeepAlive.`type` => Success(KeepAlive)
+      case Close.`type`     => Success(Close)
+      case Upgrade.`type`   => Success(Upgrade)
+      case _                => Failure(Unknown)
+    }
+  }
 }

@@ -15,10 +15,12 @@
   **/
 package io.bitsnap.http
 
+import scala.util.Try
+
 package object headers {
   private[headers] val hashCodePrime = 31
 
-  private[http] val known = Map[String, (String) => Header](
+  private[http] val known = Map[String, (String) => Try[Header]](
     Accept.name                        -> Accept.apply,
     AcceptCharset.name                 -> AcceptCharset.apply,
     AcceptDatetime.name                -> AcceptDatetime.apply,

@@ -16,10 +16,12 @@
 package io.bitsnap.http
 package headers
 
-import io.bitsnap.http.Header.Implicit._
+import io.bitsnap.http.Header._
 import io.bitsnap.http.{Range => HttpRange}
 
-final class ContentDisposition(val dispositionType: Header.Parameter) extends Header with ContentDisposition.Checks {
+import scala.util.{Failure, Success, Try}
+
+final class ContentDisposition(val dispositionType: Parameter) extends Header with ContentDisposition.Checks {
   override val name = ContentDisposition.name
 
   def filename = dispositionType.attributes get "filename"
@@ -50,13 +52,17 @@ object ContentDisposition {
 
   def attachment(filename: String): ContentDisposition = attachment(Map("filename" -> filename))
 
-  def apply(string: String) = {
-    if (string.isEmpty) { throw Invalid }
+  def apply(string: String): Try[ContentDisposition] = {
+    if (string.trim.isEmpty) {
+      Failure(Invalid)
+    } else {
+      val Parameters(parameters @ _ *) = string
 
-    val Parameters(parameters @ _ *) = string
-    new ContentDisposition(parameters.headOption.getOrElse {
-      throw Invalid
-    })
+      parameters.isEmpty match {
+        case true => Failure(Invalid)
+        case _    => Success(new ContentDisposition(parameters.head))
+      }
+    }
   }
 }
 
@@ -79,10 +85,12 @@ object ContentEncoding {
 
   object Invalid extends Header.Invalid
 
-  def apply(string: String) = {
-    if (string.isEmpty) { throw Invalid }
-
-    new ContentEncoding(Encoding(string))
+  def apply(string: String): Try[ContentEncoding] = {
+    if (string.trim.isEmpty) {
+      Failure(Invalid)
+    } else {
+      Encoding(string).map(new ContentEncoding(_))
+    }
   }
 }
 
@@ -105,25 +113,24 @@ object ContentLanguage {
 
   object Invalid extends Header.Invalid
 
-  def apply(string: String) = {
-    if (string.isEmpty) { throw Invalid }
-
-    val Locales(locales @ _ *) = string
-
-    if (locales.isEmpty) {
-      throw Invalid
+  def apply(string: String): Try[ContentLanguage] = {
+    if (string.trim.isEmpty) {
+      Failure(Invalid)
     } else {
-      new ContentLanguage(locales)
+      val Locales(locales @ _ *) = string
+
+      locales.isEmpty match {
+        case true => Failure(Invalid)
+        case _    => Success(new ContentLanguage(new Locales(locales)))
+      }
     }
   }
 }
 
 final class ContentLength(val length: Int) extends Header {
 
-  {
-    if (length <= 0) {
-      throw ContentLength.Invalid
-    }
+  if (length <= 0) {
+    throw ContentLength.Invalid
   }
 
   override val name: String = ContentLength.name
@@ -144,17 +151,19 @@ object ContentLength {
 
   object Invalid extends Header.Invalid
 
-  def apply(string: String) = {
-    try {
-      if (string.isEmpty) { throw Invalid }
-
-      new ContentLength(string.toInt)
-    } catch {
-      case e: NumberFormatException => throw ContentLength.Invalid
+  def apply(string: String): Try[ContentLength] = {
+    if (string.trim.isEmpty) {
+      Failure(Invalid)
+    } else {
+      Try(new ContentLength(string.toInt)) match {
+        case Failure(e) if e.isInstanceOf[NumberFormatException] => Failure(Invalid)
+        case Success(e)                                          => Success(e)
+      }
     }
   }
 }
 
+// TODO: URI
 final class ContentLocation(val url: String) extends Header {
   override val name: String = ContentLocation.name
 
@@ -173,16 +182,19 @@ object ContentLocation {
 
   object Invalid extends Header.Invalid
 
-  def apply(string: String) = {
-    if (string.isEmpty) { throw Invalid }
-
-    new ContentLocation(string)
+  def apply(string: String): Try[ContentLocation] = {
+    val trimmed = string.trim
+    if (trimmed.isEmpty) {
+      Failure(Invalid)
+    } else {
+      Success(new ContentLocation(trimmed))
+    }
   }
 }
 
 final class ContentMD5(val md5: String) extends Header {
 
-  if (!md5.matches(ContentMD5.md5Pattern.toString)) {
+  if (!ContentMD5.md5Pattern.pattern.matcher(md5).matches) {
     throw ContentMD5.Invalid
   }
 
@@ -206,10 +218,13 @@ object ContentMD5 {
 
   private[headers] val md5Pattern = """([a-fA-F0-9]{32})""".r
 
-  def apply(string: String) = {
-    if (string.isEmpty) { throw Invalid }
-
-    new ContentMD5(string)
+  def apply(string: String): Try[ContentMD5] = {
+    val trimmed = string.trim
+    if (trimmed.isEmpty) {
+      Failure(Invalid)
+    } else {
+      Success(new ContentMD5(string))
+    }
   }
 }
 
@@ -232,12 +247,14 @@ object ContentRange {
 
   object Invalid extends Header.Invalid
 
-  def apply(string: String) = {
-    if (string.isEmpty) { throw Invalid }
-
-    new ContentRange(HttpRange(string))
+  def apply(string: String): Try[ContentRange] = {
+    val trimmed = string.trim
+    if (trimmed.isEmpty) {
+      Failure(Invalid)
+    } else {
+      HttpRange(trimmed).map { new ContentRange(_) }
+    }
   }
-
 }
 
 final class ContentType(val `type`: MimeType) extends Header {
@@ -259,9 +276,12 @@ object ContentType {
 
   object Invalid extends Header.Invalid
 
-  def apply(string: String) = {
-    if (string.isEmpty) { throw Invalid }
-
-    new ContentType(MimeType(string))
+  def apply(string: String): Try[ContentType] = {
+    val trimmed = string.trim
+    if (trimmed.isEmpty) {
+      Failure(Invalid)
+    } else {
+      MimeType(trimmed).map { new ContentType(_) }
+    }
   }
 }

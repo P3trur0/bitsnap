@@ -16,7 +16,9 @@
 package io.bitsnap.http
 package headers
 
-import io.bitsnap.http.Header.Implicit.{Date => HeaderDate}
+import io.bitsnap.http.Header.{Date => HeaderDate}
+
+import scala.util.{Failure, Try}
 
 class LastModified(override val date: HeaderDate) extends DateHeader(date) {
 
@@ -38,10 +40,11 @@ object LastModified {
 
   object Invalid extends Header.Invalid
 
-  def apply(string: String) = {
-    if (string.isEmpty) { throw Invalid }
-
-    val HeaderDate(date) = string
-    new LastModified(date)
+  def apply(string: String): Try[LastModified] = {
+    if (string.isEmpty) {
+      Failure(Invalid)
+    } else {
+      HeaderDate(string).map { new LastModified(_) }
+    }
   }
 }

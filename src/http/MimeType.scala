@@ -16,6 +16,10 @@
 package io.bitsnap
 package http
 
+import util._
+
+import scala.util.{Failure, Success, Try}
+
 final class MimeType(private[http] val mimeType: String, private[http] val mimeSubType: String)
     extends MimeType.Checks {
   override def toString: String = s"$mimeType/$mimeSubType"
@@ -41,17 +45,26 @@ object MimeType {
 
   object Invalid extends Header.Invalid
 
-  def apply(string: String) = {
+  def apply(string: String): Try[MimeType] = {
     try {
-      val chunks = string.split("/")
-      val (mimeType, mimeSubtype) = (
-        chunks.headOption.getOrElse { throw Invalid },
-        chunks.lastOption.getOrElse { throw Invalid }
-      )
+      val slPos = string.indexOf('/')
+      if (slPos > 0) {
+        val (mimeType, mimeSubtype) = (
+          string.substringBefore(slPos),
+          string.substringAfter(slPos)
+        )
 
-      new MimeType(mimeType, mimeSubtype)
+        if (mimeType.isDefined && mimeSubtype.isDefined) {
+          Success(new MimeType(mimeType.get, mimeSubtype.get))
+        } else {
+          Failure(Invalid)
+        }
+
+      } else {
+        Failure(Invalid)
+      }
     } catch {
-      case e: NoSuchElementException => throw Invalid
+      case e: NoSuchElementException => Failure(Invalid)
     }
   }
 }

@@ -16,6 +16,8 @@
 package io.bitsnap.http
 package headers
 
+import scala.util.{Failure, Try}
+
 final class TransferEncoding(val encoding: Encoding) extends Header {
 
   override val name = TransferEncoding.name
@@ -38,9 +40,11 @@ object TransferEncoding {
 
   object Invalid extends Header.Invalid
 
-  def apply(string: String) = {
-    if (string.isEmpty) { throw Invalid }
-
-    new TransferEncoding(Encoding(string))
+  def apply(string: String): Try[TransferEncoding] = {
+    if (string.trim.isEmpty) {
+      Failure(Invalid)
+    } else {
+      Encoding(string).map { new TransferEncoding(_) }
+    }
   }
 }

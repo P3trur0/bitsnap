@@ -18,11 +18,13 @@ package http
 
 import java.nio.charset.{StandardCharsets, Charset => NioCharset}
 
-private[http] sealed class Charset(val charset: NioCharset, val aliases: List[String]) {
+import scala.util.{Failure, Success, Try}
 
-  private[http] def matches(name: String) = aliases contains name
+private[http] sealed class Charset(private[http] val charset: NioCharset, private[http] val aliases: List[String]) {
 
   override def toString = aliases.head
+
+  def apply = charset
 
   def decoder = charset.newDecoder
 
@@ -62,8 +64,11 @@ object Charset {
 
   object Unknown extends Header.Invalid
 
-  def apply(name: String) =
+  def apply(name: String): Try[Charset] =
     known find { charset =>
-      charset matches name
-    } getOrElse { throw Charset.Unknown }
+      charset.aliases.contains(name)
+    } match {
+      case Some(charset) => Success(charset)
+      case None          => Failure(Unknown)
+    }
 }

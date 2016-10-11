@@ -16,6 +16,8 @@
 package io.bitsnap.http
 package headers
 
+import scala.util.{Failure, Success, Try}
+
 final class DoNotTrack(val isEnabled: Boolean) extends Header {
 
   override val name: String = DoNotTrack.name
@@ -38,9 +40,9 @@ object DoNotTrack {
 
   object Invalid extends Header.Invalid
 
-  def apply(string: String) = string match {
-    case "true"  => new DoNotTrack(true)
-    case "false" => new DoNotTrack(false)
-    case _       => throw Invalid
+  def apply(string: String): Try[DoNotTrack] = string match {
+    case "true"  => Success(new DoNotTrack(true))
+    case "false" => Success(new DoNotTrack(false))
+    case _       => Failure(Invalid)
   }
 }

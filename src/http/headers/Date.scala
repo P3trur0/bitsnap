@@ -16,7 +16,9 @@
 package io.bitsnap.http
 package headers
 
-import io.bitsnap.http.Header.Implicit.{Date => HeaderDate}
+import io.bitsnap.http.Header.{Date => HeaderDate}
+
+import scala.util.{Failure, Try}
 
 final class Date(override val date: HeaderDate) extends DateHeader(date) {
   override val name = AcceptDatetime.name
@@ -37,10 +39,11 @@ object Date {
 
   object Invalid extends Header.Invalid
 
-  def apply(string: String) = {
-    if (string.isEmpty) { throw Invalid }
-
-    val HeaderDate(date) = string
-    new Date(date)
+  def apply(string: String): Try[Date] = {
+    if (string.trim.isEmpty) {
+      Failure(Invalid)
+    } else {
+      HeaderDate(string).map { new Date(_) }
+    }
   }
 }

@@ -19,6 +19,8 @@ package headers
 
 import io.bitsnap.util._
 
+import scala.util.{Failure, Success, Try}
+
 final class Cookie(val values: Map[String, String]) extends Header {
   override val name = Cookie.name
 
@@ -48,18 +50,26 @@ object Cookie {
 
   object Invalid extends Header.Invalid
 
-  def apply(string: String) = {
-    if (string.isEmpty) { throw Invalid }
-
-    new Cookie(
-      string
+  def apply(string: String): Try[Cookie] = {
+    if (string.trim.isEmpty) {
+      Failure(Invalid)
+    } else {
+      val cookies = string
         .split(";")
         .map {
           _.trim
         }
         .map { e =>
-          e.splitNameValue.getOrElse { throw Invalid }
+          e.splitNameValue
         }
-        .toMap)
+        .filter { _.isDefined }
+        .map { _.get }
+        .toMap
+
+      cookies.isEmpty match {
+        case true => Failure(Invalid)
+        case _    => Success(new Cookie(cookies))
+      }
+    }
   }
 }

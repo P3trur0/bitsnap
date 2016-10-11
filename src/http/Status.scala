@@ -16,6 +16,8 @@
 package io.bitsnap
 package http
 
+import scala.util.{Failure, Success, Try}
+
 private[http] sealed abstract class Status(val value: Int) extends Status.Checks {
 
   lazy val name = getClass.getSimpleName.toLowerCase.stripSuffix("$")
@@ -30,10 +32,6 @@ private[http] sealed abstract class Status(val value: Int) extends Status.Checks
   }
 
   override def hashCode = http.hashCodePrime + value.hashCode
-}
-
-final class UnknownStatus private[http] (override val value: Int) extends Status(value) {
-  override val description = "Unknown Status"
 }
 
 object Status {
@@ -127,24 +125,28 @@ object Status {
     sealed trait ServerError extends Error
   }
 
+  object Unknown extends Http.Invalid
+
   private[http] trait Checks { this: Status =>
     final def isSuccess     = this.isInstanceOf[Status.Type.Success]
     final def isRedirection = this.isInstanceOf[Status.Type.Redirection]
     final def isError       = this.isInstanceOf[Status.Type.Error]
     final def isServerError = this.isInstanceOf[Status.Type.ServerError]
-    final def isUnknown     = this.isInstanceOf[UnknownStatus]
   }
 
-  def apply(value: Int) = {
+  def apply(value: Int): Try[Status] = {
     (value / 100 match {
       case 2 if value <= 226 => Status.Type.success
       case 3 if value <= 308 => Status.Type.redirection
       case 4                 => Status.Type.error
       case 5                 => Status.Type.serverError
-    }) find { _.value == value } getOrElse { new UnknownStatus(value) }
+    }) find { _.value == value } match {
+      case Some(e) => Success(e)
+      case None    => Failure(Unknown)
+    }
   }
 
-  def apply(name: String) = {
+  def apply(name: String): Try[Status] = {
     val lc             = name.toLowerCase()
     var found: Boolean = false
 
@@ -161,7 +163,10 @@ object Status {
           Some(e)
         } else { None }
       } else { None }
-    }.filter { _.isDefined }.map { _.get }.head
+    }.filter { _.isDefined }.map { _.get }.head match {
+      case Some(e) => Success(e)
+      case None    => Failure(Unknown)
+    }
   }
 
   object OK extends Status(200) with Status.Type.Success {

@@ -37,7 +37,7 @@ object HeadersSuite {
 
   import CacheControl.Directive._
 
-  val testDate = Header.Implicit.Date.format(new java.util.Date())
+  val testDate = Header.Date.format(new java.util.Date())
 
   val testTag = "\\W\"tag\""
 
@@ -137,8 +137,10 @@ class HeadersSuite extends FlatSpec with Matchers with OptionValues with Inspect
     forAll(HeadersSuite.testHeaders) { e =>
       val (name, value) = e
       val apply         = headers.known.get(name).value
-      def header        = apply(value)
-      header.value should equal(value)
+      val header        = apply(value)
+
+      header.isSuccess should be(true)
+      header.get.value should equal(value)
     }
   }
 
@@ -147,9 +149,8 @@ class HeadersSuite extends FlatSpec with Matchers with OptionValues with Inspect
   }
 
   they should "be invalidated if empty" in {
-    forAll(headers.known) { e =>
-      val (_, apply) = e
-      a[Header.Invalid] should be thrownBy apply("")
+    forAll(headers.known) {
+      _._2("").isFailure should be(true)
     }
   }
 

@@ -16,6 +16,7 @@
 package io.bitsnap
 package http
 
+import scala.util.{Failure, Success, Try}
 import scala.{None => ScalaNone, Range => ScalaRange}
 
 private[http] abstract sealed class Range(val unit: Range.Unit, val size: Option[Int]) {
@@ -124,7 +125,7 @@ object Range {
 
   object Invalid extends Header.Invalid
 
-  private[http] def apply(unit: Unit, rangeSizeString: String): Range =
+  private[http] def apply(unit: Unit, rangeSizeString: String): Try[Range] =
     try {
       if (!rangeSizeString.contains('/')) {
         throw Invalid
@@ -152,45 +153,52 @@ object Range {
             throw Invalid
           }
 
-          new Tail(suffix, unit, size)
+          Success(new Tail(suffix, unit, size))
         case _ if rangeString.endsWith("-") =>
           val prefix = rangeString.stripMargin('-').toInt
           if (prefix <= 0) {
             throw Invalid
           }
 
-          new Head(prefix, unit, size)
+          Success(new Head(prefix, unit, size))
         case _ =>
           val chunks = rangeString.split('-')
           val start  = chunks.headOption.getOrElse { throw Invalid }.toInt
           val end    = chunks.lastOption.getOrElse { throw Invalid }.toInt
 
-          new Bounded(start to end, unit, size)
+          Success(new Bounded(start to end, unit, size))
       }
     } catch {
       case e: NumberFormatException => throw Invalid
+      case Invalid                  => Failure(Invalid)
     }
 
-  def apply(string: String): Range = {
+  def apply(string: String): Try[Range] = {
     val chunks = string.split(" ")
 
-    val unit = Unit(chunks.headOption.getOrElse { throw Invalid })
-
-    unit match {
-      case Unit.None => Range.None
-      case _         => apply(unit, chunks.lastOption.getOrElse { throw Invalid })
+    if (chunks.length != 2) {
+      Failure(Invalid)
+    } else {
+      Unit(chunks(0)) match {
+        case Success(Unit.None) => Success(Range.None)
+        case Success(u)         => Range.apply(u, chunks(1))
+        case Failure(_)         => Failure(Invalid)
+      }
     }
   }
 
   object Unit {
+    object Invalid extends Header.Invalid
+
     object Bytes                       extends Range.Unit("bytes")
     object None                        extends Range.Unit("none")
     final class Specific(name: String) extends Range.Unit(name)
 
-    def apply(name: String) = name match {
-      case "bytes" => Unit.Bytes
-      case "none"  => Unit.None
-      case _       => new Range.Unit.Specific(name)
+    def apply(name: String): Try[Unit] = name match {
+      case "bytes"           => Success(Unit.Bytes)
+      case "none"            => Success(Unit.None)
+      case _ if name.isEmpty => Failure(Invalid)
+      case _                 => Success(new Range.Unit.Specific(name))
     }
   }
 }

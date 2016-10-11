@@ -20,6 +20,7 @@ package headers
 import io.bitsnap.util._
 
 import scala.collection.mutable
+import scala.util.{Failure, Success, Try}
 
 final class PublicKeyPins(val publicSha256: Seq[String],
                           val includeSubDomains: Boolean,
@@ -64,50 +65,43 @@ object PublicKeyPins {
 
   object Invalid extends Header.Invalid
 
-  def apply(string: String) = {
-
-    val publicSha256      = new mutable.MutableList[String]
-    var includeSubDomains = false
-    var maxAge            = 0
-    var reportUri         = ""
-
-    try {
-      string
-        .split(";")
-        .map {
-          _.trim
-        }
-        .foreach { e =>
-          val lw = e.toLowerCase.trim
-          e match {
-            case _ if lw.startsWith("pin-sha256=") =>
-              publicSha256 += e
-                .substringAfter('=')
-                .getOrElse {
-                  throw Invalid
-                }
-                .stripQuotes
-            case _ if lw.startsWith("max-age=") =>
-              maxAge = e.substringAfter('=').getOrElse { throw Invalid }.toInt
-            case _ if lw.startsWith("includesubdomains") => includeSubDomains = true
-            case _ if lw.startsWith("report-uri=") =>
-              reportUri = e
-                .substringAfter('=')
-                .getOrElse {
-                  throw Invalid
-                }
-                .stripQuotes
-            case _ =>
-          }
-        }
-    } catch {
-      case _: NumberFormatException => throw Invalid
-    }
-
-    new PublicKeyPins(publicSha256, includeSubDomains, maxAge, if (reportUri.isEmpty) {
-      None
+  def apply(string: String): Try[PublicKeyPins] = {
+    if (string.isEmpty) {
+      Failure(Invalid)
     } else {
-      Some(reportUri)
-    })
+
+      val publicSha256      = new mutable.MutableList[String]
+      var includeSubDomains = false
+      var maxAge            = 0
+      var reportUri         = ""
+
+      var error = false
+
+      string.split(";").map { _.trim }.foreach { e =>
+        val lw = e.toLowerCase.trim
+        e match {
+          case _ if lw.startsWith("pin-sha256=") =>
+            publicSha256 += e.substringAfter('=').getOrElse { error = true; "" }.stripQuotes
+          case _ if lw.startsWith("max-age=") =>
+            Try(e.substringAfter('=').getOrElse { "" }.toInt) match {
+              case Success(e) => maxAge = e
+              case Failure(_) => error = true
+            }
+          case _ if lw.startsWith("includesubdomains") => includeSubDomains = true
+          case _ if lw.startsWith("report-uri=") =>
+            reportUri = e.substringAfter('=').getOrElse { error = true; "" }.stripQuotes
+        }
+      }
+
+      if (!error) {
+        Success(new PublicKeyPins(publicSha256, includeSubDomains, maxAge, if (reportUri.isEmpty) {
+          None
+        } else {
+          Some(reportUri)
+        }))
+      } else {
+        Failure(Invalid)
+      }
+    }
   }
 }

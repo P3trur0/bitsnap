@@ -16,6 +16,8 @@
 package io.bitsnap.http
 package headers
 
+import scala.util.{Failure, Success, Try}
+
 class Vary(final val headerName: String) extends Header {
   override val name: String = Vary.name
   override lazy val value   = headerName
@@ -46,9 +48,9 @@ object Vary {
 
   object Invalid extends Header.Invalid
 
-  def apply(string: String) = string match {
-    case "*"                      => VaryAny
-    case _ if string.trim.isEmpty => throw Invalid
-    case _                        => new Vary(string)
+  def apply(string: String): Try[Vary] = string match {
+    case "*"                      => Success(VaryAny)
+    case _ if string.trim.isEmpty => Failure(Invalid)
+    case _                        => Success(new Vary(string))
   }
 }

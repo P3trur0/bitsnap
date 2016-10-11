@@ -16,6 +16,8 @@
 package io.bitsnap
 package http
 
+import scala.util.{Failure, Success, Try}
+
 private[http] sealed class Method(private val name: String) extends Ordered[String] {
   override def toString              = name
   override def compare(that: String) = name compare that
@@ -46,20 +48,26 @@ object Method {
     override def compare(a: Method, b: Method): Int = a.compare(b.name)
   })
 
-  def apply(name: String) = {
-    if (name.size < 2) {
-      throw Unknown
+  def apply(name: String): Try[Method] =
+    if (name.isEmpty) {
+      Failure(Unknown)
+    } else {
+      known.find { e =>
+        e.name(0) == name(0) && e.name(1) == name(1)
+      } match {
+        case Some(method) => Success(method)
+        case None         => Failure(Unknown)
+      }
     }
-
-    known.find { e =>
-      e.name(0) == name(0) && e.name(1) == name(1)
-    }.getOrElse { throw Unknown }
-  }
 
   def unapplySeq(string: String): Option[Seq[Method]] = {
-    val methods = string.split(",").map { s =>
-      Method(s.trim)
-    }
+    val methods = string
+      .split(",")
+      .map { s =>
+        Method(s.trim)
+      }
+      .filter { _.isSuccess }
+      .map { _.get }
 
     if (methods.isEmpty) {
       None
