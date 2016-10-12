@@ -5,3 +5,5 @@ project/target/
 
 *~
 .DS_Store
+
+sbt-launch.jar
