@@ -1,5 +1,4 @@
 # Bitsnap
-
 [![Waffle](https://badge.waffle.io/bitsnap/bitsnap.svg?label=ready&title=Waffle.io)](http://waffle.io/bitsnap/bitsnap)
 [![Gitter](https://img.shields.io/gitter/room/nwjs/nw.js.svg)](https://gitter.im/bitsnap/bitsnap)
 
