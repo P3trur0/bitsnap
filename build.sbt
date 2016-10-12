@@ -50,7 +50,8 @@ lazy val dependencies = Seq(
     "com.fasterxml.jackson.core" % "jackson-annotations" % versions("jackson"),
     "org.scalatest"              % "scalatest_2.11"      % versions("scalatest") % "test",
     "org.scala-lang.modules"     % "scala-xml_2.11"      % versions("scalaxml") % "test"
-  )
+  ),
+  resolvers += Resolver.url("scoverage-bintray", url("https://dl.bintray.com/sksamuel/sbt-plugins/"))(Resolver.ivyStylePatterns)
 )
 
 lazy val root = (project in file("."))

@@ -1,0 +1,30 @@
+codecov:
+  notify:
+    require_ci_to_pass: yes
+
+coverage:
+  range: 50..100
+  round: down
+  precision: 2
+  status:
+    project: yes
+    patch: yes
+    changes: yes
+    project:
+      default:
+        target: auto
+        threshold: 1%
+        base: auto
+        branches: "master"
+
+  notify:
+    gitter:
+      default:
+        url: "https://webhooks.gitter.im/e/22ea64c1d21476c953b8"
+        threshold: 1%
+
+comment:
+  layout: "header, diff, tree, changes, sunburst"
+  behavior: once
+  require_changes: true
+  branches: "master"
