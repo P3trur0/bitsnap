@@ -20,7 +20,7 @@ import java.util.Locale
 
 import Header.{Date => HeaderDate, _}
 import io.bitsnap.http.{Range => HttpRange}
-import Header.Implicit._
+import Header.Implicits._
 
 import scala.util.{Failure, Success, Try}
 
@@ -308,7 +308,7 @@ object AcceptPatch {
   }
 }
 
-class AcceptRanges(val unit: HttpRange.Unit) extends Header {
+final class AcceptRanges(val unit: HttpRange.Unit) extends Header {
 
   override lazy val value = unit.toString
   override val name       = AcceptRanges.name
@@ -338,10 +338,17 @@ object AcceptRanges {
   }
 }
 
-class TransferEncodings(encodings: Seq[Encoding]) extends Header {
+final class TransferEncodings(val encodings: Seq[Encoding]) extends Header {
   override val name: String = TransferEncodings.name
 
   override lazy val value: String = encodings.mkString(", ")
+
+  override def equals(that: Any) = that match {
+    case that: TransferEncodings => this.encodings == that.encodings
+    case _                       => false
+  }
+
+  override def hashCode = (0 /: encodings.map { _.hashCode }) { headers.hashCodePrime + _ + _ }
 }
 
 object TransferEncodings {

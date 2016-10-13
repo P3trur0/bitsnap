@@ -20,7 +20,7 @@ import io.bitsnap.http.Header.{Date => HeaderDate}
 
 import scala.util.{Failure, Try}
 
-class Expires(override val date: HeaderDate) extends DateHeader(date) {
+final class Expires(override val date: HeaderDate) extends DateHeader(date) {
   override val name = AcceptDatetime.name
 
   override def equals(that: Any) = that match {

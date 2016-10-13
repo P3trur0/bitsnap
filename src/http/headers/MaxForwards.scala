@@ -18,7 +18,7 @@ package headers
 
 import scala.util.{Failure, Success, Try}
 
-class MaxForwards(val numberOfForwards: Int) extends Header {
+final class MaxForwards(val numberOfForwards: Int) extends Header {
   if (numberOfForwards <= 0) {
     throw MaxForwards.Invalid
   }

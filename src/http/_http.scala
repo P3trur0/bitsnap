@@ -23,7 +23,7 @@ import scala.util.{Failure, Success}
 
 package object http {
 
-  private[http] val hashCodePrime = 31
+  private[http] val hashCodePrime = 11
 
   implicit class Headers(val seq: Seq[Header]) extends AnyVal {
     final def find[T <: Header](name: String) = {
@@ -32,7 +32,7 @@ package object http {
         throw new RuntimeException("Use Headers.cookies, Headers.setCookies instead")
       }
 
-      Headers.Implicit.toRichSeq(this).binarySearch(n) match {
+      Headers.Implicits.toRichSeq(this).binarySearch(n) match {
         case Some(x) => Some(x.asInstanceOf[T])
         case None    => None
       }
@@ -220,7 +220,7 @@ package object http {
       }.filter { _.isDefined }.map { _.get }
     }
 
-    private[http] object Implicit {
+    private[http] object Implicits {
       implicit def toHeaders(seq: Seq[Header]): Headers =
         Headers(seq.sortWith { (a, b) =>
           a.name > b.name || a.name == b.name && a.value > b.value

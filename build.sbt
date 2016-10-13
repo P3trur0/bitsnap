@@ -17,7 +17,6 @@ import sbt.Keys._
 
 val versions = Map(
   "scala"     -> "2.11.8",
-  "jackson"   -> "2.8.2",
   "scalatest" -> "3.0.0",
   "scalaxml"  -> "1.0.5"
 )
@@ -45,13 +44,11 @@ lazy val pathSettings = Seq(
 
 lazy val dependencies = Seq(
   libraryDependencies ++= Seq(
-    "com.fasterxml.jackson.core" % "jackson-core"        % versions("jackson"),
-    "com.fasterxml.jackson.core" % "jackson-databind"    % versions("jackson"),
-    "com.fasterxml.jackson.core" % "jackson-annotations" % versions("jackson"),
-    "org.scalatest"              % "scalatest_2.11"      % versions("scalatest") % "test",
-    "org.scala-lang.modules"     % "scala-xml_2.11"      % versions("scalaxml") % "test"
+    "org.scalatest"          % "scalatest_2.11" % versions("scalatest") % "test",
+    "org.scala-lang.modules" % "scala-xml_2.11" % versions("scalaxml")  % "test"
   ),
-  resolvers += Resolver.url("scoverage-bintray", url("https://dl.bintray.com/sksamuel/sbt-plugins/"))(Resolver.ivyStylePatterns)
+  resolvers += Resolver.url("scoverage-bintray", url("https://dl.bintray.com/sksamuel/sbt-plugins/"))(
+    Resolver.ivyStylePatterns)
 )
 
 lazy val root = (project in file("."))
@@ -63,7 +60,9 @@ lazy val root = (project in file("."))
     version := "0.0.1",
     maxErrors := 20,
     pollInterval := 1000,
-    scalacOptions ++= Seq("-deprecation", "-Xcheckinit", "-unchecked", "-feature"),
+    coverageOutputHTML := true,
+    scalacOptions in (Compile, doc) ++= Seq("-diagrams", "-groups", "-implicits", "-skip-packages"),
+    scalacOptions ++= Seq("-deprecation", "-unchecked", "-feature", "-Xcheckinit"),
     javaOptions += "-Xmx1G",
     fork := true,
     fork in Test := true,

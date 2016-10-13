@@ -34,7 +34,7 @@ trait Header extends Ordered[String] {
   override def toString = s"$name: $value"
 }
 
-abstract class WeakHeader(val isWeak: Boolean, val tag: String) extends Header {
+private[http] abstract class WeakHeader(val isWeak: Boolean, val tag: String) extends Header {
   override lazy val value = if (isWeak) {
     s"\\W${tag.quoted}"
   } else {
@@ -49,7 +49,7 @@ abstract class WeakHeader(val isWeak: Boolean, val tag: String) extends Header {
   override def hashCode = http.hashCodePrime + isWeak.hashCode + tag.hashCode
 }
 
-object WeakHeader {
+private[http] object WeakHeader {
   def apply(string: String) = {
     (string.startsWith("\\W") || string.startsWith("\\w"), string.stripPrefixIgnoreCase("\\W").stripQuotes)
   }
@@ -191,7 +191,7 @@ object Header {
     }
   }
 
-  private[http] object Implicit {
+  private[http] object Implicits {
     implicit def toQualityParameters[T](from: Seq[(T, Int)]): QualityParameters[T] =
       new QualityParameters[T](from)
 

@@ -18,9 +18,17 @@ package headers
 
 import scala.util.{Failure, Success, Try}
 
-class Connection private (val `type`: String) extends Header {
-  override val name: String  = Connection.name
+sealed class Connection private (val `type`: String) extends Header {
+  override val name: String = Connection.name
+
   override val value: String = `type`
+
+  override def equals(that: Any) = that match {
+    case that: Connection => this.`type` == that.`type`
+    case _                => false
+  }
+
+  override def hashCode = headers.hashCodePrime + `type`.hashCode
 }
 
 object Connection {

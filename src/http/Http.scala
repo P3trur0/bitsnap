@@ -23,8 +23,6 @@ private[http] sealed abstract class Http(val version: String,
                                          val headers: Headers,
                                          val body: Array[Byte],
                                          val charset: Charset) {
-
-  def asJson = ""
 }
 
 object Http {

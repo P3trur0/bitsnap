@@ -18,7 +18,7 @@ package headers
 
 import scala.util.{Failure, Success, Try}
 
-class Vary(final val headerName: String) extends Header {
+sealed class Vary(final val headerName: String) extends Header {
   override val name: String = Vary.name
   override lazy val value   = headerName
 

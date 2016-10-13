@@ -20,7 +20,7 @@ import io.bitsnap.http.Header.{Date => HeaderDate}
 
 import scala.util.{Failure, Try}
 
-class LastModified(override val date: HeaderDate) extends DateHeader(date) {
+final class LastModified(override val date: HeaderDate) extends DateHeader(date) {
 
   override val name = AcceptDatetime.name
 
